@@ -79,6 +79,41 @@ services:
     networks:
       - apig-net
 
+  auth-service:
+    build:
+      context: ..
+      dockerfile: auth-service/Dockerfile
+    container_name: apig-auth-service
+    depends_on:
+      - mysql
+      - redis
+    ports:
+      - "8083:8083"
+      - "5005:5005"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      APIG_AUTH_JWT_SECRET: change-me-to-at-least-32-bytes-secret-key
+      JAVA_TOOL_OPTIONS: -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+    networks:
+      - apig-net
+
+  gateway-dataplane:
+    build:
+      context: ..
+      dockerfile: gateway-dataplane/Dockerfile
+    container_name: apig-gateway-dataplane
+    depends_on:
+      - auth-service
+    ports:
+      - "8080:8080"
+      - "5006:5006"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      APIG_GATEWAY_JWT_SECRET: change-me-to-at-least-32-bytes-secret-key
+      JAVA_TOOL_OPTIONS: -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5006
+    networks:
+      - apig-net
+
 networks:
   apig-net:
     driver: bridge

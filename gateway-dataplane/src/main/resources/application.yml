@@ -1,0 +1,17 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: gateway-dataplane
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+apig:
+  gateway:
+    jwt-secret: "change-me-to-at-least-32-bytes-secret-key"
+    rate-limit-per-minute: 120
