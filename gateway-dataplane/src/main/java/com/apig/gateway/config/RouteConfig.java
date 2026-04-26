@@ -16,7 +16,7 @@ public class RouteConfig {
         return builder.routes()
                 .route("mock-upstream", r -> r.path("/api/mock/**")
                         .filters(f -> f.rewritePath("/api/mock/(?<segment>.*)", "/mock/${segment}"))
-                        .uri("forward:/"))
+                        .uri("http://127.0.0.1:8080"))
                 .build();
     }
 }

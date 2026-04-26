@@ -84,3 +84,21 @@ docker compose -f deploy/docker-compose.yml up -d --build auth-service gateway-d
 - 连接 `gateway-dataplane`：`localhost:5006`
 
 断点命中后可查看变量、调用栈并单击进入源码。  
+
+## 10. 添加 `.vscode\settings.json`
+```json
+{
+    "java.compile.nullAnalysis.mode": "automatic",
+    "java.jdt.ls.java.home": "/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home",
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-21",
+            "path": "/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home",
+            "default": true
+        }
+    ],
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "java.import.maven.enabled": true,
+    "java.maven.downloadSources": true
+}
+```
