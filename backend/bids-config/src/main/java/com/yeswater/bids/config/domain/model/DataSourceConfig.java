@@ -1,5 +1,7 @@
 package com.yeswater.bids.config.domain.model;
 
+import com.yeswater.bids.sql.dialect.SqlDialectType;
+
 public record DataSourceConfig(
         String id,
         String code,
@@ -8,6 +10,7 @@ public record DataSourceConfig(
         String username,
         String password,
         String driverClassName,
+        SqlDialectType sqlDialect,
         int maxPoolSize,
         boolean active
 ) {

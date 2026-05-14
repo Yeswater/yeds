@@ -1,6 +1,8 @@
 package com.yeswater.bids.exec.application;
 
 import com.yeswater.bids.exec.infrastructure.web.ApiException;
+import com.yeswater.bids.sql.dialect.SqlDialectParserSupport;
+import com.yeswater.bids.sql.dialect.SqlDialectType;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.Statements;
@@ -12,8 +14,18 @@ import org.springframework.stereotype.Service;
 public class SqlSafetyValidator {
 
     public void validateReadonlySelect(String sql) {
+        validateReadonlySelect(sql, SqlDialectType.MYSQL);
+    }
+
+    /**
+     * 按数据源方言校验 SQL 是否为单条只读 select。
+     */
+    public void validateReadonlySelect(String sql, SqlDialectType dialect) {
         try {
-            Statements statements = CCJSqlParserUtil.parseStatements(normalizeNamedParameters(sql));
+            Statements statements = CCJSqlParserUtil.parseStatements(
+                    normalizeNamedParameters(sql),
+                    SqlDialectParserSupport.parserConfigurer(dialect)
+            );
             if (statements.getStatements().size() != 1) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "SQL 只能包含一条语句");
             }

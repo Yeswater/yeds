@@ -6,6 +6,7 @@ create table if not exists bids_datasource (
   username varchar(128) not null,
   password varchar(512) not null,
   driver_class_name varchar(128) not null,
+  sql_dialect varchar(32) not null default 'MYSQL',
   max_pool_size int not null,
   active boolean not null default true,
   created_at timestamp not null default current_timestamp,
