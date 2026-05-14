@@ -10,6 +10,7 @@ import com.yeswater.bids.exec.interfaces.dto.FormFieldResponse;
 import com.yeswater.bids.exec.interfaces.dto.FormResponse;
 import com.yeswater.bids.exec.interfaces.dto.LogResponse;
 import com.yeswater.bids.exec.interfaces.dto.ResultColumnResponse;
+import com.yeswater.bids.exec.domain.model.DataSourceConfig;
 import com.yeswater.bids.exec.domain.model.ExecuteLog;
 import com.yeswater.bids.exec.domain.model.FieldType;
 import com.yeswater.bids.exec.domain.model.FormField;
@@ -18,7 +19,10 @@ import com.yeswater.bids.exec.domain.model.ResultColumn;
 import com.yeswater.bids.exec.domain.model.SqlModelConfig;
 import com.yeswater.bids.exec.domain.model.SqlModelStatus;
 import com.yeswater.bids.exec.infrastructure.datasource.BusinessDataSourceManager;
+import com.yeswater.bids.exec.infrastructure.dialect.RelationalDatabaseDialectPlugin;
+import com.yeswater.bids.exec.infrastructure.dialect.RelationalDatabaseDialectRegistry;
 import com.yeswater.bids.exec.infrastructure.persistence.ConfigQueryRepository;
+import com.yeswater.bids.sql.dialect.SqlDialectType;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.security.core.Authentication;
@@ -44,6 +48,7 @@ public class RuntimeService {
     private final SqlSafetyValidator sqlSafetyValidator;
     private final SqlDisplayFormatter sqlDisplayFormatter;
     private final BusinessDataSourceManager dataSourceManager;
+    private final RelationalDatabaseDialectRegistry dialectRegistry;
     private final AuditSearchPublisher auditSearchPublisher;
     private final ObjectMapper objectMapper;
 
@@ -53,6 +58,7 @@ public class RuntimeService {
             SqlSafetyValidator sqlSafetyValidator,
             SqlDisplayFormatter sqlDisplayFormatter,
             BusinessDataSourceManager dataSourceManager,
+            RelationalDatabaseDialectRegistry dialectRegistry,
             AuditSearchPublisher auditSearchPublisher,
             ObjectMapper objectMapper
     ) {
@@ -61,6 +67,7 @@ public class RuntimeService {
         this.sqlSafetyValidator = sqlSafetyValidator;
         this.sqlDisplayFormatter = sqlDisplayFormatter;
         this.dataSourceManager = dataSourceManager;
+        this.dialectRegistry = dialectRegistry;
         this.auditSearchPublisher = auditSearchPublisher;
         this.objectMapper = objectMapper;
     }
@@ -86,13 +93,20 @@ public class RuntimeService {
             ensurePermission(config);
             Map<String, Object> bindParameters = validateAndConvertParameters(config.fields(), parameters);
             String renderedSql = sqlTemplateService.render(config.model().sqlTemplate(), bindParameters);
-            sqlSafetyValidator.validateReadonlySelect(renderedSql);
+            DataSourceConfig dataSource = configRepository.findDataSource(config.model().datasourceCode())
+                    .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "数据源不存在：" + config.model().datasourceCode()));
+            SqlDialectType dialect = dataSource.sqlDialect();
+            RelationalDatabaseDialectPlugin dialectPlugin = dialectRegistry.require(dialect);
+            sqlSafetyValidator.validateReadonlySelect(renderedSql, dialect);
             finalSql = sqlDisplayFormatter.toDisplaySql(renderedSql, bindParameters);
 
             NamedParameterJdbcTemplate jdbcTemplate = dataSourceManager.jdbcTemplate(config.model().datasourceCode());
             Map<String, Object> queryParameters = new HashMap<>(bindParameters);
             queryParameters.put("__bids_limit", config.model().maxRows() + 1);
-            List<Map<String, Object>> rows = jdbcTemplate.queryForList(wrapLimit(renderedSql), queryParameters);
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                    dialectPlugin.wrapSelectWithRowCap(renderedSql, "__bids_limit"),
+                    queryParameters
+            );
             List<Map<String, Object>> visibleRows = rows.stream()
                     .limit(config.model().maxRows())
                     .map(row -> filterAndMaskRow(row, config.columns()))
@@ -230,10 +244,6 @@ public class RuntimeService {
             return "******";
         }
         return text.charAt(0) + "****" + text.substring(at);
-    }
-
-    private String wrapLimit(String sql) {
-        return "select * from (" + sql + ") bids_result limit :__bids_limit";
     }
 
     private void saveAudit(

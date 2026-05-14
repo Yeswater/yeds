@@ -1,5 +1,5 @@
-merge into bids_datasource (id, code, name, jdbc_url, username, password, driver_class_name, max_pool_size, active) key(id) values
-('local-ds', 'local', '本地测试数据源', 'jdbc:h2:file:/tmp/bids-local;MODE=MySQL;DATABASE_TO_LOWER=TRUE;AUTO_SERVER=TRUE', 'sa', '', 'org.h2.Driver', 5, true);
+merge into bids_datasource (id, code, name, jdbc_url, username, password, driver_class_name, sql_dialect, max_pool_size, active) key(id) values
+('local-ds', 'local', '本地测试数据源', 'jdbc:h2:file:/tmp/bids-local;MODE=MySQL;DATABASE_TO_LOWER=TRUE;AUTO_SERVER=TRUE', 'sa', '', 'org.h2.Driver', 'MYSQL', 5, true);
 
 merge into bids_sql_model (id, code, name, datasource_code, sql_template, max_rows, status) key(id) values
 ('order-query', 'order_query', '订单查询', 'local',

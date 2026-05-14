@@ -9,6 +9,7 @@ import com.yeswater.bids.exec.domain.model.ResultColumn;
 import com.yeswater.bids.exec.domain.model.SqlModel;
 import com.yeswater.bids.exec.domain.model.SqlModelConfig;
 import com.yeswater.bids.exec.domain.model.SqlModelStatus;
+import com.yeswater.bids.sql.dialect.SqlDialectType;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -29,7 +30,7 @@ public class ConfigQueryRepository {
 
     public Optional<DataSourceConfig> findDataSource(String code) {
         return jdbcTemplate.query("""
-                select id, code, name, jdbc_url, username, password, driver_class_name, max_pool_size, active
+                select id, code, name, jdbc_url, username, password, driver_class_name, sql_dialect, max_pool_size, active
                 from bids_datasource
                 where code = :code
                 """, new MapSqlParameterSource("code", code), datasourceMapper()).stream().findFirst();
@@ -116,6 +117,7 @@ public class ConfigQueryRepository {
                 rs.getString("username"),
                 rs.getString("password"),
                 rs.getString("driver_class_name"),
+                SqlDialectType.valueOf(rs.getString("sql_dialect")),
                 rs.getInt("max_pool_size"),
                 rs.getBoolean("active")
         );

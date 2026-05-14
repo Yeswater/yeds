@@ -7,6 +7,7 @@ import com.yeswater.bids.config.interfaces.dto.ValidateResponse;
 import com.yeswater.bids.config.domain.model.DataSourceConfig;
 import com.yeswater.bids.config.domain.model.SqlModelConfig;
 import com.yeswater.bids.config.domain.model.SqlModelStatus;
+import com.yeswater.bids.sql.dialect.SqlDialectType;
 import com.yeswater.bids.config.infrastructure.persistence.ConfigRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -38,7 +39,7 @@ public class ConfigService {
     @Transactional
     public SqlModelConfig createModel(SqlModelRequest request) {
         requireDatasource(request.datasourceCode());
-        validateTemplate(request.sqlTemplate());
+        validateTemplate(request.datasourceCode(), request.sqlTemplate());
         return configRepository.createModel(request);
     }
 
@@ -46,7 +47,7 @@ public class ConfigService {
     public SqlModelConfig updateModel(String id, SqlModelRequest request) {
         requireModel(id);
         requireDatasource(request.datasourceCode());
-        validateTemplate(request.sqlTemplate());
+        validateTemplate(request.datasourceCode(), request.sqlTemplate());
         return configRepository.updateModel(id, request);
     }
 
@@ -57,7 +58,10 @@ public class ConfigService {
     public ValidateResponse validateModel(String id) {
         SqlModelConfig config = requireModel(id);
         String renderedSql = sqlTemplateService.render(config.model().sqlTemplate(), Map.of());
-        sqlSafetyValidator.validateReadonlySelect(renderedSql);
+        SqlDialectType dialect = configRepository.findDataSource(config.model().datasourceCode())
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "数据源不存在：" + config.model().datasourceCode()))
+                .sqlDialect();
+        sqlSafetyValidator.validateReadonlySelect(renderedSql, dialect);
         return new ValidateResponse(true, "SQL 校验通过", renderedSql);
     }
 
@@ -76,9 +80,12 @@ public class ConfigService {
         return requireModel(id);
     }
 
-    private void validateTemplate(String sqlTemplate) {
+    private void validateTemplate(String datasourceCode, String sqlTemplate) {
         String renderedSql = sqlTemplateService.render(sqlTemplate, Map.of());
-        sqlSafetyValidator.validateReadonlySelect(renderedSql);
+        SqlDialectType dialect = configRepository.findDataSource(datasourceCode)
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "数据源不存在：" + datasourceCode))
+                .sqlDialect();
+        sqlSafetyValidator.validateReadonlySelect(renderedSql, dialect);
     }
 
     private void requireDatasource(String datasourceCode) {

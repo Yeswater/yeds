@@ -13,6 +13,7 @@ import com.yeswater.bids.config.domain.model.ResultColumn;
 import com.yeswater.bids.config.domain.model.SqlModel;
 import com.yeswater.bids.config.domain.model.SqlModelConfig;
 import com.yeswater.bids.config.domain.model.SqlModelStatus;
+import com.yeswater.bids.sql.dialect.SqlDialectType;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -34,9 +35,9 @@ public class ConfigRepository {
         String id = UUID.randomUUID().toString();
         jdbcTemplate.update("""
                 insert into bids_datasource
-                (id, code, name, jdbc_url, username, password, driver_class_name, max_pool_size, active)
+                (id, code, name, jdbc_url, username, password, driver_class_name, sql_dialect, max_pool_size, active)
                 values
-                (:id, :code, :name, :jdbcUrl, :username, :password, :driverClassName, :maxPoolSize, :active)
+                (:id, :code, :name, :jdbcUrl, :username, :password, :driverClassName, :sqlDialect, :maxPoolSize, :active)
                 """, new MapSqlParameterSource()
                 .addValue("id", id)
                 .addValue("code", request.code())
@@ -45,6 +46,7 @@ public class ConfigRepository {
                 .addValue("username", request.username())
                 .addValue("password", request.password())
                 .addValue("driverClassName", request.driverClassName())
+                .addValue("sqlDialect", request.sqlDialect().name())
                 .addValue("maxPoolSize", request.maxPoolSize())
                 .addValue("active", request.active()));
         return findDataSource(request.code()).orElseThrow();
@@ -52,7 +54,7 @@ public class ConfigRepository {
 
     public Optional<DataSourceConfig> findDataSource(String code) {
         return jdbcTemplate.query("""
-                select id, code, name, jdbc_url, username, password, driver_class_name, max_pool_size, active
+                select id, code, name, jdbc_url, username, password, driver_class_name, sql_dialect, max_pool_size, active
                 from bids_datasource
                 where code = :code
                 """, new MapSqlParameterSource("code", code), datasourceMapper()).stream().findFirst();
@@ -227,6 +229,7 @@ public class ConfigRepository {
                 rs.getString("username"),
                 rs.getString("password"),
                 rs.getString("driver_class_name"),
+                SqlDialectType.valueOf(rs.getString("sql_dialect")),
                 rs.getInt("max_pool_size"),
                 rs.getBoolean("active")
         );
