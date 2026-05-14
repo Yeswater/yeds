@@ -302,6 +302,7 @@ public class RuntimeService {
         return new ResultColumnResponse(
                 column.columnName(),
                 column.label(),
+                column.valueType(),
                 column.visible(),
                 column.maskType(),
                 column.sortOrder()

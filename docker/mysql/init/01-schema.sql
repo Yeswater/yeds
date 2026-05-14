@@ -1,3 +1,6 @@
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS = 0;
+
 create table if not exists bids_datasource (
   id varchar(36) primary key,
   code varchar(64) not null unique,
@@ -10,7 +13,7 @@ create table if not exists bids_datasource (
   max_pool_size int not null,
   active boolean not null default true,
   created_at timestamp not null default current_timestamp,
-  updated_at timestamp not null default current_timestamp
+  updated_at timestamp not null default current_timestamp on update current_timestamp
 );
 
 create table if not exists bids_sql_model (
@@ -22,7 +25,7 @@ create table if not exists bids_sql_model (
   max_rows int not null,
   status varchar(32) not null,
   created_at timestamp not null default current_timestamp,
-  updated_at timestamp not null default current_timestamp
+  updated_at timestamp not null default current_timestamp on update current_timestamp
 );
 
 create table if not exists bids_form_field (
@@ -68,3 +71,12 @@ create table if not exists bids_execute_log (
   row_count int not null,
   created_at timestamp not null default current_timestamp
 );
+
+create table if not exists t_order (
+  order_id varchar(32) primary key,
+  user_name varchar(64) not null,
+  amount decimal(12,2) not null,
+  create_time timestamp not null
+);
+
+SET FOREIGN_KEY_CHECKS = 1;

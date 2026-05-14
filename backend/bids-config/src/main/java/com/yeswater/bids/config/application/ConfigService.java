@@ -2,6 +2,7 @@ package com.yeswater.bids.config.application;
 
 import com.yeswater.bids.config.infrastructure.web.ApiException;
 import com.yeswater.bids.config.interfaces.dto.DataSourceRequest;
+import com.yeswater.bids.config.interfaces.dto.SqlModelListItem;
 import com.yeswater.bids.config.interfaces.dto.SqlModelRequest;
 import com.yeswater.bids.config.interfaces.dto.ValidateResponse;
 import com.yeswater.bids.config.domain.model.DataSourceConfig;
@@ -13,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -34,6 +36,14 @@ public class ConfigService {
     @Transactional
     public DataSourceConfig createDataSource(DataSourceRequest request) {
         return configRepository.saveDataSource(request);
+    }
+
+    public List<DataSourceConfig> listDataSources() {
+        return configRepository.listDataSources();
+    }
+
+    public List<SqlModelListItem> listSqlModels() {
+        return configRepository.listSqlModels();
     }
 
     @Transactional

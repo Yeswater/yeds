@@ -5,6 +5,7 @@ public record ResultColumn(
         String modelId,
         String columnName,
         String label,
+        FieldType valueType,
         boolean visible,
         String maskType,
         int sortOrder

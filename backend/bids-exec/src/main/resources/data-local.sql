@@ -9,11 +9,11 @@ merge into bids_sql_model (id, code, name, datasource_code, sql_template, max_ro
 merge into bids_form_field (id, model_id, field_name, label, field_type, required, default_value, options_json, sort_order) key(id) values
 ('order-user-name', 'order-query', 'userName', '用户名', 'TEXT', false, null, null, 1);
 
-merge into bids_result_column (id, model_id, column_name, label, visible, mask_type, sort_order) key(id) values
-('order-col-id', 'order-query', 'order_id', '订单号', true, null, 1),
-('order-col-user', 'order-query', 'user_name', '用户名', true, null, 2),
-('order-col-amount', 'order-query', 'amount', '金额', true, null, 3),
-('order-col-time', 'order-query', 'create_time', '创建时间', true, null, 4);
+merge into bids_result_column (id, model_id, column_name, label, value_type, visible, mask_type, sort_order) key(id) values
+('order-col-id', 'order-query', 'order_id', '订单号', 'TEXT', true, null, 1),
+('order-col-user', 'order-query', 'user_name', '用户名', 'TEXT', true, null, 2),
+('order-col-amount', 'order-query', 'amount', '金额', 'NUMBER', true, null, 3),
+('order-col-time', 'order-query', 'create_time', '创建时间', 'DATETIME', true, null, 4);
 
 create table if not exists t_order (
   order_id varchar(32) primary key,

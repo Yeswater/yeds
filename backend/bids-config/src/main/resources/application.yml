@@ -5,6 +5,8 @@ spring:
   application:
     name: bids-config
   datasource:
+    # 与仓库根目录 docker-compose 中 MySQL 对齐时可用：
+    # jdbc:mysql://127.0.0.1:3306/bids?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     url: ${BIDS_CONFIG_DB_URL:jdbc:mysql://localhost:3306/bids?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${BIDS_CONFIG_DB_USERNAME:bids}
     password: ${BIDS_CONFIG_DB_PASSWORD:bids}

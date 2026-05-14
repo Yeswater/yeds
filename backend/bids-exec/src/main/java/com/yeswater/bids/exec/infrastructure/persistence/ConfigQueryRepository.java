@@ -93,7 +93,7 @@ public class ConfigQueryRepository {
 
     private List<ResultColumn> findColumns(String modelId) {
         return jdbcTemplate.query("""
-                select id, model_id, column_name, label, visible, mask_type, sort_order
+                select id, model_id, column_name, label, value_type, visible, mask_type, sort_order
                 from bids_result_column
                 where model_id = :modelId
                 order by sort_order asc, id asc
@@ -155,6 +155,7 @@ public class ConfigQueryRepository {
                 rs.getString("model_id"),
                 rs.getString("column_name"),
                 rs.getString("label"),
+                FieldType.valueOf(rs.getString("value_type")),
                 rs.getBoolean("visible"),
                 rs.getString("mask_type"),
                 rs.getInt("sort_order")

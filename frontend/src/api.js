@@ -1,7 +1,27 @@
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8082'
+const API_ROOT = import.meta.env.VITE_API_BASE ?? ''
+
+function basicAuth(username, password) {
+  return `Basic ${btoa(`${username}:${password}`)}`
+}
+
+async function http(path, { method = 'GET', username, password, body } = {}) {
+  const response = await fetch(`${API_ROOT}${path}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: basicAuth(username || 'admin', password || 'admin')
+    },
+    body
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new Error(data.message || `请求失败 ${response.status}`)
+  }
+  return data
+}
 
 export async function loadForm(modelCode, username, password) {
-  return request(`/api/runtime/models/${encodeURIComponent(modelCode)}/form`, {
+  return http(`/api/runtime/models/${encodeURIComponent(modelCode)}/form`, {
     method: 'GET',
     username,
     password
@@ -9,7 +29,7 @@ export async function loadForm(modelCode, username, password) {
 }
 
 export async function executeModel(modelCode, parameters, username, password) {
-  return request(`/api/runtime/models/${encodeURIComponent(modelCode)}/execute`, {
+  return http(`/api/runtime/models/${encodeURIComponent(modelCode)}/execute`, {
     method: 'POST',
     username,
     password,
@@ -17,22 +37,59 @@ export async function executeModel(modelCode, parameters, username, password) {
   })
 }
 
-async function request(path, options) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    method: options.method,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': basicAuth(options.username || 'admin', options.password || 'admin')
-    },
-    body: options.body
-  })
-  const data = await response.json().catch(() => ({}))
-  if (!response.ok) {
-    throw new Error(data.message || '请求失败')
-  }
-  return data
+export async function listDataSources(auth) {
+  return http('/api/config/datasources', { method: 'GET', ...auth })
 }
 
-function basicAuth(username, password) {
-  return `Basic ${btoa(`${username}:${password}`)}`
+export async function createDataSource(payload, auth) {
+  return http('/api/config/datasources', {
+    method: 'POST',
+    ...auth,
+    body: JSON.stringify(payload)
+  })
+}
+
+export async function listSqlModels(auth) {
+  return http('/api/config/models', { method: 'GET', ...auth })
+}
+
+export async function getSqlModel(id, auth) {
+  return http(`/api/config/models/${encodeURIComponent(id)}`, { method: 'GET', ...auth })
+}
+
+export async function createSqlModel(payload, auth) {
+  return http('/api/config/models', {
+    method: 'POST',
+    ...auth,
+    body: JSON.stringify(payload)
+  })
+}
+
+export async function updateSqlModel(id, payload, auth) {
+  return http(`/api/config/models/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    ...auth,
+    body: JSON.stringify(payload)
+  })
+}
+
+export async function validateSqlModel(id, auth) {
+  return http(`/api/config/models/${encodeURIComponent(id)}/validate`, {
+    method: 'POST',
+    ...auth
+  })
+}
+
+export async function publishSqlModel(id, auth) {
+  return http(`/api/config/models/${encodeURIComponent(id)}/publish`, {
+    method: 'POST',
+    ...auth
+  })
+}
+
+export async function offlineSqlModel(id, auth) {
+  return http(`/api/config/models/${encodeURIComponent(id)}/offline`, {
+    method: 'POST',
+    ...auth
+  })
 }
