@@ -1,6 +1,7 @@
 package com.yeswater.bids.config.interfaces.rest;
 
 import com.yeswater.bids.config.interfaces.dto.DataSourceRequest;
+import com.yeswater.bids.config.interfaces.dto.SqlModelListItem;
 import com.yeswater.bids.config.interfaces.dto.SqlModelRequest;
 import com.yeswater.bids.config.interfaces.dto.ValidateResponse;
 import com.yeswater.bids.config.domain.model.DataSourceConfig;
@@ -15,6 +16,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/config")
 public class ConfigController {
@@ -28,6 +31,18 @@ public class ConfigController {
     @PostMapping("/datasources")
     public DataSourceConfig createDataSource(@Valid @RequestBody DataSourceRequest request) {
         return configService.createDataSource(request);
+    }
+
+    /** 列出全部数据源。 */
+    @GetMapping("/datasources")
+    public List<DataSourceConfig> listDataSources() {
+        return configService.listDataSources();
+    }
+
+    /** 列出全部 SQL 模型摘要。 */
+    @GetMapping("/models")
+    public List<SqlModelListItem> listSqlModels() {
+        return configService.listSqlModels();
     }
 
     /** 创建 SQL 模型草稿。 */

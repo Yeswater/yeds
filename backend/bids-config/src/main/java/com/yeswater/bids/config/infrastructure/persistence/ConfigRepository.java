@@ -4,6 +4,7 @@ import com.yeswater.bids.config.interfaces.dto.DataSourceRequest;
 import com.yeswater.bids.config.interfaces.dto.FormFieldRequest;
 import com.yeswater.bids.config.interfaces.dto.ModelPermissionRequest;
 import com.yeswater.bids.config.interfaces.dto.ResultColumnRequest;
+import com.yeswater.bids.config.interfaces.dto.SqlModelListItem;
 import com.yeswater.bids.config.interfaces.dto.SqlModelRequest;
 import com.yeswater.bids.config.domain.model.DataSourceConfig;
 import com.yeswater.bids.config.domain.model.FieldType;
@@ -19,6 +20,8 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -136,7 +139,7 @@ public class ConfigRepository {
 
     private List<ResultColumn> findColumns(String modelId) {
         return jdbcTemplate.query("""
-                select id, model_id, column_name, label, visible, mask_type, sort_order
+                select id, model_id, column_name, label, value_type, visible, mask_type, sort_order
                 from bids_result_column
                 where model_id = :modelId
                 order by sort_order asc, id asc
@@ -172,14 +175,15 @@ public class ConfigRepository {
         for (ResultColumnRequest column : emptyIfNull(request.columns())) {
             jdbcTemplate.update("""
                     insert into bids_result_column
-                    (id, model_id, column_name, label, visible, mask_type, sort_order)
+                    (id, model_id, column_name, label, value_type, visible, mask_type, sort_order)
                     values
-                    (:id, :modelId, :columnName, :label, :visible, :maskType, :sortOrder)
+                    (:id, :modelId, :columnName, :label, :valueType, :visible, :maskType, :sortOrder)
                     """, new MapSqlParameterSource()
                     .addValue("id", UUID.randomUUID().toString())
                     .addValue("modelId", modelId)
                     .addValue("columnName", column.columnName())
                     .addValue("label", column.label())
+                    .addValue("valueType", column.valueType().name())
                     .addValue("visible", column.visible())
                     .addValue("maskType", column.maskType())
                     .addValue("sortOrder", column.sortOrder()));
@@ -267,10 +271,42 @@ public class ConfigRepository {
                 rs.getString("model_id"),
                 rs.getString("column_name"),
                 rs.getString("label"),
+                FieldType.valueOf(rs.getString("value_type")),
                 rs.getBoolean("visible"),
                 rs.getString("mask_type"),
                 rs.getInt("sort_order")
         );
+    }
+
+    public List<DataSourceConfig> listDataSources() {
+        return jdbcTemplate.query("""
+                select id, code, name, jdbc_url, username, password, driver_class_name, sql_dialect, max_pool_size, active
+                from bids_datasource
+                order by code asc
+                """, datasourceMapper());
+    }
+
+    public List<SqlModelListItem> listSqlModels() {
+        return jdbcTemplate.query("""
+                select id, code, name, datasource_code, status, updated_at
+                from bids_sql_model
+                order by updated_at desc, code asc
+                """, sqlModelListMapper());
+    }
+
+    private RowMapper<SqlModelListItem> sqlModelListMapper() {
+        return (rs, rowNum) -> new SqlModelListItem(
+                rs.getString("id"),
+                rs.getString("code"),
+                rs.getString("name"),
+                rs.getString("datasource_code"),
+                SqlModelStatus.valueOf(rs.getString("status")),
+                toInstant(rs.getTimestamp("updated_at"))
+        );
+    }
+
+    private Instant toInstant(Timestamp timestamp) {
+        return timestamp == null ? null : timestamp.toInstant();
     }
 
     private RowMapper<ModelPermission> permissionMapper() {

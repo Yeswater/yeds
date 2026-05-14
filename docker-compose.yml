@@ -1,0 +1,26 @@
+services:
+  mysql:
+    build:
+      context: ./docker/mysql
+    image: bids-mysql:8
+    container_name: bids-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: bids
+      MYSQL_USER: bids
+      MYSQL_PASSWORD: bids
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - bids_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+volumes:
+  bids_mysql_data:

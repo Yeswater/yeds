@@ -42,6 +42,7 @@ create table if not exists bids_result_column (
   model_id varchar(36) not null,
   column_name varchar(128) not null,
   label varchar(128) not null,
+  value_type varchar(32) not null default 'TEXT',
   visible boolean not null default true,
   mask_type varchar(32),
   sort_order int not null default 0
