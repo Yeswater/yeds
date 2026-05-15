@@ -1,18 +1,8 @@
 <template>
   <div class="page">
-    <el-card class="card">
-      <el-form :inline="true">
-        <el-form-item label="管理员账号">
-          <el-input v-model="auth.username" style="width: 140px" />
-        </el-form-item>
-        <el-form-item label="管理员密码">
-          <el-input v-model="auth.password" type="password" show-password style="width: 160px" />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="refreshAll">刷新</el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
+    <div class="page-actions">
+      <el-button type="primary" @click="refreshAll">刷新</el-button>
+    </div>
 
     <el-tabs v-model="activeTab">
       <el-tab-pane label="数据源" name="ds">
@@ -193,8 +183,8 @@ import {
   publishSqlModel,
   offlineSqlModel
 } from '../api'
+import { sessionAuthOpts } from '../sessionAuth.js'
 
-const auth = reactive({ username: 'admin', password: 'admin' })
 const activeTab = ref('ds')
 const datasources = ref([])
 const models = ref([])
@@ -229,7 +219,7 @@ const modelForm = reactive({
 })
 
 function authOpts() {
-  return { username: auth.username, password: auth.password }
+  return sessionAuthOpts()
 }
 
 async function refreshAll() {

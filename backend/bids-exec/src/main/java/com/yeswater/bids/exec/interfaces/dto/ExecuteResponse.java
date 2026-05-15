@@ -9,6 +9,9 @@ public record ExecuteResponse(
         List<ResultColumnResponse> columns,
         List<Map<String, Object>> rows,
         int rowCount,
-        long durationMs
+        long durationMs,
+        int currentPage,
+        int pageSize,
+        long total
 ) {
 }

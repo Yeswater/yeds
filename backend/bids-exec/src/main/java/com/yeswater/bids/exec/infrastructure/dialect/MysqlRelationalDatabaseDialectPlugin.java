@@ -26,4 +26,9 @@ public class MysqlRelationalDatabaseDialectPlugin implements RelationalDatabaseD
     public String wrapSelectWithRowCap(String innerSelectSql, String namedLimitParameter) {
         return SqlDialectParserSupport.wrapSelectWithRowCap(innerSelectSql, namedLimitParameter);
     }
+
+    @Override
+    public String wrapSelectWithPaging(String innerSelectSql, String limitNamedParameter, String offsetNamedParameter) {
+        return SqlDialectParserSupport.wrapSelectWithPaging(innerSelectSql, limitNamedParameter, offsetNamedParameter);
+    }
 }

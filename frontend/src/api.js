@@ -28,12 +28,23 @@ export async function loadForm(modelCode, username, password) {
   })
 }
 
-export async function executeModel(modelCode, parameters, username, password) {
+export async function executeModel(modelCode, parameters, username, password, paging = {}) {
+  const currentPage = paging.currentPage ?? 1
+  const pageSize = paging.pageSize ?? 200
   return http(`/api/runtime/models/${encodeURIComponent(modelCode)}/execute`, {
     method: 'POST',
     username,
     password,
-    body: JSON.stringify({ parameters })
+    body: JSON.stringify({ parameters, currentPage, pageSize })
+  })
+}
+
+/** 按执行编号拉取审计日志（与 execute 返回的 executeId 对应）。 */
+export async function fetchExecuteLog(executeId, username, password) {
+  return http(`/api/runtime/logs/${encodeURIComponent(executeId)}`, {
+    method: 'GET',
+    username,
+    password
   })
 }
 
