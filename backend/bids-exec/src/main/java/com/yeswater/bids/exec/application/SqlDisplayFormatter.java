@@ -9,7 +9,8 @@ import java.util.regex.Pattern;
 
 @Service
 public class SqlDisplayFormatter {
-    private static final Pattern NAMED_PARAMETER = Pattern.compile("(?<!:):([A-Za-z][A-Za-z0-9_]*)");
+    /** 命名参数首字符允许字母或下划线，以支持 :__bids_page_size 等内部占位符 */
+    private static final Pattern NAMED_PARAMETER = Pattern.compile("(?<!:):([A-Za-z_][A-Za-z0-9_]*)");
 
     public String toDisplaySql(String sql, Map<String, Object> parameters) {
         if (parameters == null || parameters.isEmpty()) {

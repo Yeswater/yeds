@@ -30,4 +30,16 @@ public final class SqlDialectParserSupport {
     public static String wrapSelectWithRowCap(String innerSelectSql, String namedLimitParameter) {
         return "select * from (" + innerSelectSql + ") bids_result limit :" + namedLimitParameter;
     }
+
+    /**
+     * 在内层查询外包一层并追加 LIMIT / OFFSET 命名参数（MySQL / PostgreSQL / openGauss 兼容写法）。
+     */
+    public static String wrapSelectWithPaging(String innerSelectSql, String limitNamedParameter, String offsetNamedParameter) {
+        return "select * from ("
+                + innerSelectSql
+                + ") bids_result limit :"
+                + limitNamedParameter
+                + " offset :"
+                + offsetNamedParameter;
+    }
 }

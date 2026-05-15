@@ -28,4 +28,9 @@ public interface RelationalDatabaseDialectPlugin {
      * @param namedLimitParameter 命名参数名（不含冒号）
      */
     String wrapSelectWithRowCap(String innerSelectSql, String namedLimitParameter);
+
+    /**
+     * 内层查询外包一层并追加 LIMIT / OFFSET 命名参数。
+     */
+    String wrapSelectWithPaging(String innerSelectSql, String limitNamedParameter, String offsetNamedParameter);
 }

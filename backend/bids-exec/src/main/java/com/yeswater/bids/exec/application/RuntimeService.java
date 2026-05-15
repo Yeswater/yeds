@@ -26,6 +26,7 @@ import com.yeswater.bids.exec.infrastructure.dialect.RelationalDatabaseDialectRe
 import com.yeswater.bids.exec.infrastructure.persistence.ConfigQueryRepository;
 import com.yeswater.bids.sql.dialect.SqlDialectType;
 import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -34,6 +35,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -81,10 +83,11 @@ public class RuntimeService {
         SqlModelConfig config = requirePublishedModel(modelCode);
         ensurePermission(config);
         NamedParameterJdbcTemplate jdbc = dataSourceManager.jdbcTemplate(config.model().datasourceCode());
+        List<ModelPermission> perms = config.permissions();
         return new FormResponse(
                 config.model().code(),
                 config.model().name(),
-                config.fields().stream().map(f -> toFieldResponse(f, resolveDistinctOptions(jdbc, f))).toList(),
+                config.fields().stream().map(f -> toFieldResponse(f, buildFieldOptions(jdbc, f, perms))).toList(),
                 config.columns().stream().map(this::toColumnResponse).toList()
         );
     }
@@ -93,7 +96,11 @@ public class RuntimeService {
         String executeId = UUID.randomUUID().toString();
         long start = System.currentTimeMillis();
         String finalSql = "";
-        Map<String, Object> parameters = request == null || request.parameters() == null ? Map.of() : request.parameters();
+        Map<String, Object> parameters = request != null && request.parameters() != null ? request.parameters() : Map.of();
+        Integer reqPage = request != null ? request.currentPage() : null;
+        Integer reqSize = request != null ? request.pageSize() : null;
+        int currentPage = reqPage != null && reqPage > 0 ? reqPage : 1;
+        int pageSize = reqSize != null && reqSize > 0 ? reqSize : 200;
         try {
             SqlModelConfig config = requirePublishedModel(modelCode);
             ensurePermission(config);
@@ -104,17 +111,32 @@ public class RuntimeService {
             SqlDialectType dialect = dataSource.sqlDialect();
             RelationalDatabaseDialectPlugin dialectPlugin = dialectRegistry.require(dialect);
             sqlSafetyValidator.validateReadonlySelect(renderedSql, dialect);
-            finalSql = sqlDisplayFormatter.toDisplaySql(renderedSql, bindParameters);
 
             NamedParameterJdbcTemplate jdbcTemplate = dataSourceManager.jdbcTemplate(config.model().datasourceCode());
+
+            MapSqlParameterSource countSource = new MapSqlParameterSource(bindParameters);
+            String countSql = "SELECT COUNT(*) FROM (" + renderedSql + ") bids_cnt";
+            Long total = jdbcTemplate.queryForObject(countSql, countSource, Long.class);
+            if (total == null) {
+                total = 0L;
+            }
+
+            long offsetLong = (long) (currentPage - 1) * pageSize;
+            if (offsetLong < 0 || offsetLong > Integer.MAX_VALUE) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "分页偏移越界");
+            }
+            int offset = (int) offsetLong;
+
+            String pagedSql =
+                    dialectPlugin.wrapSelectWithPaging(renderedSql, "__bids_page_size", "__bids_offset");
             Map<String, Object> queryParameters = new HashMap<>(bindParameters);
-            queryParameters.put("__bids_limit", config.model().maxRows() + 1);
-            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                    dialectPlugin.wrapSelectWithRowCap(renderedSql, "__bids_limit"),
-                    queryParameters
-            );
+            queryParameters.put("__bids_page_size", pageSize);
+            queryParameters.put("__bids_offset", offset);
+
+            finalSql = sqlDisplayFormatter.toDisplaySql(pagedSql, queryParameters);
+
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(pagedSql, queryParameters);
             List<Map<String, Object>> visibleRows = rows.stream()
-                    .limit(config.model().maxRows())
                     .map(row -> filterAndMaskRow(row, config.columns()))
                     .toList();
             long durationMs = System.currentTimeMillis() - start;
@@ -125,7 +147,10 @@ public class RuntimeService {
                     config.columns().stream().filter(ResultColumn::visible).map(this::toColumnResponse).toList(),
                     visibleRows,
                     visibleRows.size(),
-                    durationMs
+                    durationMs,
+                    currentPage,
+                    pageSize,
+                    total
             );
         } catch (Exception exception) {
             long durationMs = System.currentTimeMillis() - start;
@@ -290,6 +315,61 @@ public class RuntimeService {
         } catch (JsonProcessingException exception) {
             return "{}";
         }
+    }
+
+    /**
+     * 组装字段下拉项：distinctFrom 动态值 + 可选的模型权限项（optionsJson.permissionOptions 为 true 时）。
+     */
+    private List<FormOptionItem> buildFieldOptions(
+            NamedParameterJdbcTemplate jdbc, FormField field, List<ModelPermission> permissions) {
+        List<FormOptionItem> distinct = resolveDistinctOptions(jdbc, field);
+        if (!permissionOptionsRequested(field)) {
+            return distinct;
+        }
+        List<FormOptionItem> perm = toPermissionOptionItems(permissions);
+        if (perm.isEmpty()) {
+            return distinct;
+        }
+        LinkedHashMap<String, FormOptionItem> merged = new LinkedHashMap<>();
+        for (FormOptionItem p : perm) {
+            merged.put(p.value(), p);
+        }
+        for (FormOptionItem d : distinct) {
+            merged.putIfAbsent(d.value(), d);
+        }
+        return new ArrayList<>(merged.values());
+    }
+
+    /** optionsJson 根节点 permissionOptions 为 true 时，将 bids_model_permission 中的用户/角色并入下拉。 */
+    private boolean permissionOptionsRequested(FormField field) {
+        String raw = field.optionsJson();
+        if (raw == null || raw.isBlank()) {
+            return false;
+        }
+        try {
+            JsonNode root = objectMapper.readTree(raw);
+            return root.path("permissionOptions").asBoolean(false);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private List<FormOptionItem> toPermissionOptionItems(List<ModelPermission> permissions) {
+        if (permissions == null || permissions.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashMap<String, FormOptionItem> map = new LinkedHashMap<>();
+        for (ModelPermission p : permissions) {
+            if (p.username() != null && !p.username().isBlank()) {
+                String u = p.username();
+                map.putIfAbsent("perm:user:" + u, new FormOptionItem("用户 · " + u, u));
+            }
+            if (p.roleCode() != null && !p.roleCode().isBlank()) {
+                String r = p.roleCode();
+                map.putIfAbsent("perm:role:" + r, new FormOptionItem("角色 · " + r, r));
+            }
+        }
+        return new ArrayList<>(map.values());
     }
 
     /**
