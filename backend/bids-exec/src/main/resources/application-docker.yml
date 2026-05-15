@@ -7,3 +7,10 @@ spring:
   sql:
     init:
       mode: never
+  elasticsearch:
+    uris: ${SPRING_ELASTICSEARCH_URIS:http://elasticsearch:9200}
+
+bids:
+  audit:
+    elasticsearch:
+      enabled: true

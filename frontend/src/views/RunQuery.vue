@@ -3,7 +3,22 @@
     <el-card class="card">
       <el-form :inline="true" :model="queryState">
         <el-form-item label="模型编码">
-          <el-input v-model="queryState.modelCode" placeholder="请输入模型编码" clearable />
+          <el-select
+            v-model="queryState.modelCode"
+            filterable
+            allow-create
+            default-first-option
+            clearable
+            placeholder="请选择或输入模型编码"
+            style="width: 280px"
+          >
+            <el-option
+              v-for="opt in publishedModelOptions"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="用户">
           <el-input v-model="queryState.username" placeholder="Basic 用户名" />
@@ -43,6 +58,15 @@
             type="datetime"
             value-format="YYYY-MM-DDTHH:mm:ss"
           />
+          <el-select
+            v-else-if="field.fieldType === 'BOOLEAN' && field.required"
+            v-model="formValues[field.fieldName]"
+            placeholder="请选择"
+            style="width: 220px"
+          >
+            <el-option label="是" :value="true" />
+            <el-option label="否" :value="false" />
+          </el-select>
           <el-switch v-else-if="field.fieldType === 'BOOLEAN'" v-model="formValues[field.fieldName]" />
           <el-select
             v-else-if="field.fieldType === 'SELECT'"
@@ -51,8 +75,26 @@
             filterable
           >
             <el-option
-              v-for="option in parseOptions(field.optionsJson)"
-              :key="option.value"
+              v-for="option in fieldSelectOptions(field)"
+              :key="String(option.value)"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
+          <el-select
+            v-else-if="field.fieldType === 'TEXT' && (field.required || fieldSelectOptions(field).length > 0)"
+            v-model="formValues[field.fieldName]"
+            :multiple="isMultiProductCsv(field)"
+            filterable
+            allow-create
+            default-first-option
+            clearable
+            :placeholder="field.required ? '请选择或输入' : '可选：请选择或输入'"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="option in fieldSelectOptions(field)"
+              :key="String(option.value)"
               :label="option.label"
               :value="option.value"
             />
@@ -86,9 +128,9 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { executeModel, loadForm } from '../api'
+import { executeModel, listSqlModels, loadForm } from '../api'
 
 const queryState = reactive({
   modelCode: '',
@@ -100,10 +142,34 @@ const formValues = reactive({})
 const result = ref(null)
 const loadingForm = ref(false)
 const executing = ref(false)
+/** 已发布模型，供模型编码下拉 */
+const publishedModelOptions = ref([])
+
+async function refreshPublishedModels() {
+  try {
+    const list = await listSqlModels({
+      username: queryState.username,
+      password: queryState.password
+    })
+    publishedModelOptions.value = list
+      .filter((m) => m.status === 'PUBLISHED')
+      .map((m) => ({ label: `${m.code}（${m.name}）`, value: m.code }))
+  } catch {
+    publishedModelOptions.value = []
+  }
+}
+
+onMounted(refreshPublishedModels)
+watch(
+  () => [queryState.username, queryState.password],
+  () => {
+    refreshPublishedModels()
+  }
+)
 
 async function handleLoadForm() {
   if (!queryState.modelCode) {
-    ElMessage.warning('请输入模型编码')
+    ElMessage.warning('请选择或输入模型编码')
     return
   }
   loadingForm.value = true
@@ -113,7 +179,26 @@ async function handleLoadForm() {
     result.value = null
     Object.keys(formValues).forEach((key) => delete formValues[key])
     data.fields.forEach((field) => {
-      formValues[field.fieldName] = field.defaultValue || null
+      if (field.fieldType === 'BOOLEAN') {
+        const d = field.defaultValue
+        if (d === true || d === 'true') {
+          formValues[field.fieldName] = true
+        } else if (d === false || d === 'false') {
+          formValues[field.fieldName] = false
+        } else {
+          formValues[field.fieldName] = field.required ? false : null
+        }
+      } else if (isMultiProductCsv(field)) {
+        const d = field.defaultValue
+        formValues[field.fieldName] = d
+          ? String(d)
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : []
+      } else {
+        formValues[field.fieldName] = field.defaultValue || null
+      }
     })
   } catch (error) {
     ElMessage.error(error.message)
@@ -125,11 +210,34 @@ async function handleLoadForm() {
 async function handleExecute() {
   executing.value = true
   try {
-    result.value = await executeModel(queryState.modelCode, formValues, queryState.username, queryState.password)
+    const payload = { ...formValues }
+    for (const k of Object.keys(payload)) {
+      const v = payload[k]
+      if (Array.isArray(v)) {
+        payload[k] = v.join(',')
+      }
+    }
+    result.value = await executeModel(queryState.modelCode, payload, queryState.username, queryState.password)
   } catch (error) {
     ElMessage.error(error.message)
   } finally {
     executing.value = false
+  }
+}
+
+function fieldSelectOptions(field) {
+  if (field.optionItems && field.optionItems.length > 0) {
+    return field.optionItems.map((o) => ({ label: o.label, value: o.value }))
+  }
+  return parseOptions(field.optionsJson)
+}
+
+function isMultiProductCsv(field) {
+  try {
+    const j = JSON.parse(field.optionsJson || '{}')
+    return j.distinctFrom?.multiple === true
+  } catch {
+    return false
   }
 }
 

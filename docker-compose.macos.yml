@@ -1,8 +1,12 @@
 # macOS（Docker Desktop）：合并使用
-# docker compose -f docker-compose.yml -f docker-compose.macos.yml up --build
+# docker compose -f docker-compose.yml -f docker-compose.macos.yml up --build -d
 #
-# Desktop 已提供 host.docker.internal；以下为 JVM 在桌面环境常见内存限制（可按机器调整）
+# Desktop 已提供 host.docker.internal；以下为 JVM / ES 在桌面环境常见内存限制（可按机器调整）
 services:
+  elasticsearch:
+    environment:
+      ES_JAVA_OPTS: "-Xms256m -Xmx512m"
+
   bids-config:
     environment:
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0"
