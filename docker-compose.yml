@@ -1,3 +1,12 @@
+networks:
+  bids:
+    driver: bridge
+
+volumes:
+  bids_mysql_data:
+  bids_es_data:
+  bids_pg_data:
+
 services:
   mysql:
     build:
@@ -22,6 +31,50 @@ services:
       timeout: 5s
       retries: 20
     restart: unless-stopped
+    networks:
+      - bids
+
+  postgres:
+    image: public.ecr.aws/docker/library/postgres:16-alpine
+    container_name: bids-postgres
+    environment:
+      POSTGRES_USER: bids
+      POSTGRES_PASSWORD: bids
+      POSTGRES_DB: bids_fin_demo
+    ports:
+      - "5433:5432"
+    volumes:
+      - bids_pg_data:/var/lib/postgresql/data
+      - ./docker/pgsql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bids -d bids_fin_demo"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    networks:
+      - bids
+
+  elasticsearch:
+    image: public.ecr.aws/docker/library/elasticsearch:8.15.3
+    container_name: bids-elasticsearch
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - bids_es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:9200/_cluster/health?wait_for_status=yellow&timeout=5s >/dev/null"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - bids
 
   bids-config:
     build:
@@ -42,6 +95,8 @@ services:
     ports:
       - "8081:8081"
     restart: unless-stopped
+    networks:
+      - bids
 
   bids-exec:
     build:
@@ -51,6 +106,8 @@ services:
     container_name: bids-exec
     depends_on:
       mysql:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
       bids-config:
         condition: service_started
@@ -64,6 +121,8 @@ services:
     ports:
       - "8082:8082"
     restart: unless-stopped
+    networks:
+      - bids
 
   bids-web:
     build:
@@ -79,6 +138,5 @@ services:
     ports:
       - "8080:80"
     restart: unless-stopped
-
-volumes:
-  bids_mysql_data:
+    networks:
+      - bids

@@ -1,11 +1,13 @@
 package com.yeswater.bids.exec.application;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yeswater.bids.exec.infrastructure.audit.AuditSearchPublisher;
 import com.yeswater.bids.exec.infrastructure.web.ApiException;
 import com.yeswater.bids.exec.interfaces.dto.ExecuteRequest;
 import com.yeswater.bids.exec.interfaces.dto.ExecuteResponse;
+import com.yeswater.bids.exec.interfaces.dto.FormOptionItem;
 import com.yeswater.bids.exec.interfaces.dto.FormFieldResponse;
 import com.yeswater.bids.exec.interfaces.dto.FormResponse;
 import com.yeswater.bids.exec.interfaces.dto.LogResponse;
@@ -39,10 +41,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
 public class RuntimeService {
+    private static final Pattern SAFE_SQL_IDENT = Pattern.compile("^[a-zA-Z_][a-zA-Z0-9_]*$");
+
     private final ConfigQueryRepository configRepository;
     private final SqlTemplateService sqlTemplateService;
     private final SqlSafetyValidator sqlSafetyValidator;
@@ -75,10 +80,11 @@ public class RuntimeService {
     public FormResponse getForm(String modelCode) {
         SqlModelConfig config = requirePublishedModel(modelCode);
         ensurePermission(config);
+        NamedParameterJdbcTemplate jdbc = dataSourceManager.jdbcTemplate(config.model().datasourceCode());
         return new FormResponse(
                 config.model().code(),
                 config.model().name(),
-                config.fields().stream().map(this::toFieldResponse).toList(),
+                config.fields().stream().map(f -> toFieldResponse(f, resolveDistinctOptions(jdbc, f))).toList(),
                 config.columns().stream().map(this::toColumnResponse).toList()
         );
     }
@@ -286,7 +292,48 @@ public class RuntimeService {
         }
     }
 
-    private FormFieldResponse toFieldResponse(FormField field) {
+    /**
+     * 根据字段 optionsJson 中的 distinctFrom 配置，从业务数据源查询去重值作为下拉选项。
+     */
+    private List<FormOptionItem> resolveDistinctOptions(NamedParameterJdbcTemplate jdbc, FormField field) {
+        String raw = field.optionsJson();
+        if (raw == null || raw.isBlank()) {
+            return List.of();
+        }
+        try {
+            JsonNode root = objectMapper.readTree(raw);
+            JsonNode df = root.get("distinctFrom");
+            if (df == null || !df.isObject()) {
+                return List.of();
+            }
+            String table = textOrNull(df, "table");
+            String column = textOrNull(df, "column");
+            if (table == null || column == null
+                    || !SAFE_SQL_IDENT.matcher(table).matches()
+                    || !SAFE_SQL_IDENT.matcher(column).matches()) {
+                return List.of();
+            }
+            String sql = "SELECT DISTINCT " + column + " AS v FROM " + table
+                    + " WHERE " + column + " IS NOT NULL ORDER BY 1";
+            return jdbc.query(sql, (rs, rowNum) -> {
+                String v = rs.getString("v");
+                String label = v == null ? "" : v;
+                return new FormOptionItem(label, label);
+            });
+        } catch (Exception ignored) {
+            return List.of();
+        }
+    }
+
+    private static String textOrNull(JsonNode node, String key) {
+        if (!node.has(key) || node.get(key).isNull()) {
+            return null;
+        }
+        String t = node.get(key).asText();
+        return t.isBlank() ? null : t;
+    }
+
+    private FormFieldResponse toFieldResponse(FormField field, List<FormOptionItem> optionItems) {
         return new FormFieldResponse(
                 field.fieldName(),
                 field.label(),
@@ -294,7 +341,8 @@ public class RuntimeService {
                 field.required(),
                 field.defaultValue(),
                 field.optionsJson(),
-                field.sortOrder()
+                field.sortOrder(),
+                optionItems
         );
     }
 
