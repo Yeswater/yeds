@@ -1,5 +1,6 @@
 package com.yeswater.bids.exec.infrastructure.web;
 
+import com.yeswater.bids.export.api.ExportException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -16,6 +17,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<Map<String, Object>> handleApiException(ApiException exception) {
         return ResponseEntity.status(exception.getStatus()).body(error(exception.getStatus(), exception.getMessage()));
+    }
+
+    @ExceptionHandler(ExportException.class)
+    public ResponseEntity<Map<String, Object>> handleExportException(ExportException exception) {
+        HttpStatus status = HttpStatus.resolve(exception.getHttpStatus());
+        return ResponseEntity.status(status != null ? status : HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(error(status != null ? status : HttpStatus.INTERNAL_SERVER_ERROR, exception.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

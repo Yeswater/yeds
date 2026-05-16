@@ -12,7 +12,7 @@ public record SqlModelRequest(
         @NotBlank String name,
         @NotBlank String datasourceCode,
         @NotBlank String sqlTemplate,
-        @Min(1) @Max(10000) int maxRows,
+        @Min(1) @Max(500000) int maxRows,
         @Valid List<FormFieldRequest> fields,
         @Valid List<ResultColumnRequest> columns,
         @Valid List<ModelPermissionRequest> permissions

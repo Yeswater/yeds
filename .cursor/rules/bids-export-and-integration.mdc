@@ -1,0 +1,40 @@
+---
+description: BIDS 导出/联调/Docker 常见问题，避免重复踩坑
+alwaysApply: true
+---
+
+# BIDS 导出与联调注意事项
+
+## bids-export 启动与 DDL
+
+- MySQL **不支持** `CREATE INDEX IF NOT EXISTS`（PostgreSQL 写法）；`schema.sql` 用普通 `CREATE INDEX`，或索引只放在 `docker/mysql/init/*.sql`。
+- Docker 下表结构已由 `docker/mysql/init/03-export.sql` 初始化时，`application-docker.yml` 设 `spring.sql.init.mode: never`，或在 `docker-compose` 为 bids-export 加 `SPRING_SQL_INIT_MODE: never`，避免每次启动重复跑 schema 导致崩溃循环。
+- MySQL 布尔列用 `tinyint(1)`，勿写 `boolean`。
+- 联调前执行 `docker ps`，**bids-export 必须为 Up**，不能是 Restarting。
+
+## bids-export 运行时依赖
+
+- 导出服务按请求动态连业务库，须在 `bids-export/pom.xml` 引入与 exec 一致的 JDBC 驱动（至少 `mysql-connector-j`、`postgresql`）；缺驱动会报 `Could not load JDBC driver class [org.postgresql.Driver]`。
+- 异步文件走 RustFS（S3）；本地栈需 `bids-rustfs` 与 `BIDS_EXPORT_STORAGE_TYPE=s3` 配置一致。
+
+## Docker / Maven 构建
+
+- `mvn package -DskipTests` **仍会编译**测试源码；仅打包主代码用 `-Dmaven.test.skip=true`。
+- Mock 会抛 `IOException` 的方法（如 `writeSyncXlsx`）时，测试方法须 `throws Exception`，否则编译失败导致镜像构建失败。
+
+## 前端导出（RunQuery.vue / api.js）
+
+- 设计 §11：进入「服务导出」Tab 应自动 `estimate` + `listExportTasks`（`watch(resultTab)`）。
+- `buildExportParameters` 与 `execute` 一致：数组参数过滤哨兵后 `join(',')`，字段名与白名单一致（如 `include_zero`，非 `include_zero_mv`）。
+- 异步下载：exec 返回 **302** 预签名 URL 时，用 `fetch(..., { redirect: 'manual' })` + `window.open(Location)`；`redirect: 'follow'` 易在 RustFS 上触发 CORS。
+- 导出按钮依赖 `result`：须先 **执行查询成功** 再测导出 Tab。
+
+## 联调顺序（建议）
+
+1. 确认 bids-export / bids-exec / bids-web 均 Up  
+2. `POST .../execute` 成功  
+3. `POST .../export/estimate` → 按 `mode` 测 sync 或 async  
+4. 异步：轮询任务 → `GET .../download`（302）  
+5. 前端在 8080 走完整 Tab 流程
+
+详细用例见 `docs/导出功能前端测试计划.md`。

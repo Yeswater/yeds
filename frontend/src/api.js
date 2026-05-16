@@ -1,3 +1,5 @@
+import { buildSyncExportFileName, parseContentDispositionFileName } from './dateFormat.js'
+
 const API_ROOT = import.meta.env.VITE_API_BASE ?? ''
 
 function basicAuth(username, password) {
@@ -103,4 +105,61 @@ export async function offlineSqlModel(id, auth) {
     method: 'POST',
     ...auth
   })
+}
+
+export async function estimateExport(modelCode, parameters, username, password) {
+  return http(`/api/runtime/models/${encodeURIComponent(modelCode)}/export/estimate`, {
+    method: 'POST',
+    username,
+    password,
+    body: JSON.stringify({ parameters })
+  })
+}
+
+export async function syncExportModel(modelCode, parameters, username, password) {
+  const response = await fetch(`${API_ROOT}/api/runtime/models/${encodeURIComponent(modelCode)}/export`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: basicAuth(username || 'admin', password || 'admin')
+    },
+    body: JSON.stringify({ parameters })
+  })
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    throw new Error(data.message || `导出失败 ${response.status}`)
+  }
+  const blob = await response.blob()
+  const disposition = response.headers.get('Content-Disposition') || ''
+  const fileName = parseContentDispositionFileName(disposition, buildSyncExportFileName(modelCode))
+  return { blob, fileName }
+}
+
+export async function createExportTask(modelCode, parameters, username, password) {
+  return http(`/api/runtime/models/${encodeURIComponent(modelCode)}/export/tasks`, {
+    method: 'POST',
+    username,
+    password,
+    body: JSON.stringify({ parameters })
+  })
+}
+
+export async function getExportTask(taskId, username, password) {
+  return http(`/api/runtime/export/tasks/${encodeURIComponent(taskId)}`, {
+    method: 'GET',
+    username,
+    password
+  })
+}
+
+export async function listExportTasks(limit, username, password) {
+  return http(`/api/runtime/export/tasks?limit=${limit}`, {
+    method: 'GET',
+    username,
+    password
+  })
+}
+
+export function exportTaskDownloadUrl(taskId) {
+  return `${API_ROOT}/api/runtime/export/tasks/${encodeURIComponent(taskId)}/download`
 }
