@@ -26,7 +26,9 @@
           <el-table-column prop="name" label="显示名称" min-width="140" />
           <el-table-column prop="datasourceCode" label="数据源" width="120" />
           <el-table-column prop="status" label="状态" width="100" />
-          <el-table-column prop="updatedAt" label="更新时间" min-width="180" />
+          <el-table-column prop="updatedAt" label="更新时间" min-width="180">
+            <template #default="{ row }">{{ formatDateTime(row.updatedAt) }}</template>
+          </el-table-column>
           <el-table-column label="操作" width="280" fixed="right">
             <template #default="{ row }">
               <el-button link type="primary" @click="openModelDrawer(row.id)">编辑</el-button>
@@ -92,7 +94,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="最大行数">
-          <el-input-number v-model="modelForm.maxRows" :min="1" :max="10000" />
+          <el-input-number v-model="modelForm.maxRows" :min="1" :max="500000" />
         </el-form-item>
         <el-form-item label="SQL 模板">
           <el-input v-model="modelForm.sqlTemplate" type="textarea" :rows="10" placeholder="Freemarker 模板，命名参数 :param" />
@@ -184,6 +186,7 @@ import {
   offlineSqlModel
 } from '../api'
 import { sessionAuthOpts } from '../sessionAuth.js'
+import { formatDateTime } from '../dateFormat.js'
 
 const activeTab = ref('ds')
 const datasources = ref([])

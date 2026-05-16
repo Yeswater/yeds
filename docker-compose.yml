@@ -1,3 +1,7 @@
+# 镜像见 .env；本机构建：docker compose build --pull=false && docker compose up -d
+# 国内加速：.env 中 REGISTRY_PREFIX 或 Docker daemon registry-mirrors（阿里云）
+name: bids
+
 networks:
   bids:
     driver: bridge
@@ -6,11 +10,15 @@ volumes:
   bids_mysql_data:
   bids_es_data:
   bids_pg_data:
+  bids_rustfs_data:
 
 services:
   mysql:
     build:
       context: ./docker/mysql
+      pull: false
+      args:
+        MYSQL_BASE_IMAGE: ${REGISTRY_PREFIX}${MYSQL_BASE_IMAGE:-mysql:8.0}
     image: bids-mysql:8
     container_name: bids-mysql
     ports:
@@ -35,7 +43,8 @@ services:
       - bids
 
   postgres:
-    image: public.ecr.aws/docker/library/postgres:16-alpine
+    image: ${REGISTRY_PREFIX}${POSTGRES_IMAGE:-postgres:16-alpine}
+    pull_policy: if_not_present
     container_name: bids-postgres
     environment:
       POSTGRES_USER: bids
@@ -56,7 +65,8 @@ services:
       - bids
 
   elasticsearch:
-    image: public.ecr.aws/docker/library/elasticsearch:8.15.3
+    image: ${REGISTRY_PREFIX}${ES_IMAGE:-elasticsearch:8.15.3}
+    pull_policy: if_not_present
     container_name: bids-elasticsearch
     environment:
       discovery.type: single-node
@@ -80,7 +90,12 @@ services:
     build:
       context: .
       dockerfile: docker/bids-config/Dockerfile
+      pull: false
+      args:
+        MAVEN_BUILD_IMAGE: ${REGISTRY_PREFIX}${MAVEN_BUILD_IMAGE:-maven:3.9.9-eclipse-temurin-21}
+        JAVA_RUN_IMAGE: ${REGISTRY_PREFIX}${JAVA_RUN_IMAGE:-eclipse-temurin:21-jre-jammy}
     image: bids-config:latest
+    pull_policy: if_not_present
     container_name: bids-config
     depends_on:
       mysql:
@@ -98,11 +113,65 @@ services:
     networks:
       - bids
 
+  rustfs:
+    image: ${RUSTFS_IMAGE:-rustfs/rustfs:latest}
+    pull_policy: if_not_present
+    container_name: bids-rustfs
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
+    volumes:
+      - bids_rustfs_data:/data
+    restart: unless-stopped
+    networks:
+      - bids
+
+  bids-export:
+    build:
+      context: .
+      dockerfile: docker/bids-export/Dockerfile
+      pull: false
+      args:
+        MAVEN_BUILD_IMAGE: ${REGISTRY_PREFIX}${MAVEN_BUILD_IMAGE:-maven:3.9.9-eclipse-temurin-21}
+        JAVA_RUN_IMAGE: ${REGISTRY_PREFIX}${JAVA_RUN_IMAGE:-eclipse-temurin:21-jre-jammy}
+    image: bids-export:latest
+    pull_policy: if_not_present
+    container_name: bids-export
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rustfs:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_SQL_INIT_MODE: never
+      BIDS_EXPORT_DB_URL: jdbc:mysql://mysql:3306/bids?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      BIDS_EXPORT_DB_USERNAME: bids
+      BIDS_EXPORT_DB_PASSWORD: bids
+      BIDS_EXPORT_INTERNAL_TOKEN: ${BIDS_EXPORT_INTERNAL_TOKEN:-change-me}
+      BIDS_EXPORT_RUSTFS_ENDPOINT: http://rustfs:9000
+      BIDS_EXPORT_RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      BIDS_EXPORT_RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
+      BIDS_EXPORT_STORAGE_TYPE: s3
+    ports:
+      - "8083:8083"
+    restart: unless-stopped
+    networks:
+      - bids
+
   bids-exec:
     build:
       context: .
       dockerfile: docker/bids-exec/Dockerfile
+      pull: false
+      args:
+        MAVEN_BUILD_IMAGE: ${REGISTRY_PREFIX}${MAVEN_BUILD_IMAGE:-maven:3.9.9-eclipse-temurin-21}
+        JAVA_RUN_IMAGE: ${REGISTRY_PREFIX}${JAVA_RUN_IMAGE:-eclipse-temurin:21-jre-jammy}
     image: bids-exec:latest
+    pull_policy: if_not_present
     container_name: bids-exec
     depends_on:
       mysql:
@@ -111,6 +180,8 @@ services:
         condition: service_healthy
       bids-config:
         condition: service_started
+      bids-export:
+        condition: service_started
     environment:
       SPRING_PROFILES_ACTIVE: docker
       BIDS_CONFIG_DB_URL: jdbc:mysql://mysql:3306/bids?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
@@ -118,6 +189,8 @@ services:
       BIDS_CONFIG_DB_PASSWORD: bids
       BIDS_ADMIN_USERNAME: ${BIDS_ADMIN_USERNAME:-admin}
       BIDS_ADMIN_PASSWORD: ${BIDS_ADMIN_PASSWORD:-admin}
+      BIDS_EXPORT_CLIENT_BASE_URL: http://bids-export:8083
+      BIDS_EXPORT_INTERNAL_TOKEN: ${BIDS_EXPORT_INTERNAL_TOKEN:-change-me}
     ports:
       - "8082:8082"
     restart: unless-stopped
@@ -128,9 +201,13 @@ services:
     build:
       context: .
       dockerfile: docker/bids-web/Dockerfile
+      pull: false
       args:
         VITE_API_BASE: ""
+        NODE_IMAGE: ${REGISTRY_PREFIX}${NODE_IMAGE:-node:20-alpine}
+        NGINX_IMAGE: ${REGISTRY_PREFIX}${NGINX_IMAGE:-nginx:alpine}
     image: bids-web:latest
+    pull_policy: if_not_present
     container_name: bids-web
     depends_on:
       - bids-config

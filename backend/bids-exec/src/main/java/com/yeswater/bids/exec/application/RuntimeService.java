@@ -159,6 +159,20 @@ public class RuntimeService {
         }
     }
 
+    /**
+     * 校验并渲染导出用 SQL（全量，不分页）。
+     */
+    public PreparedExport prepareExport(String modelCode, Map<String, Object> parameters) {
+        SqlModelConfig config = requirePublishedModel(modelCode);
+        ensurePermission(config);
+        Map<String, Object> bindParameters = validateAndConvertParameters(config.fields(), parameters != null ? parameters : Map.of());
+        String renderedSql = sqlTemplateService.render(config.model().sqlTemplate(), bindParameters);
+        DataSourceConfig dataSource = configRepository.findDataSource(config.model().datasourceCode())
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "数据源不存在：" + config.model().datasourceCode()));
+        sqlSafetyValidator.validateReadonlySelect(renderedSql, dataSource.sqlDialect());
+        return new PreparedExport(config.model(), dataSource, renderedSql, bindParameters, config.columns());
+    }
+
     public LogResponse getLog(String executeId) {
         ExecuteLog log = configRepository.findLog(executeId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "执行日志不存在：" + executeId));

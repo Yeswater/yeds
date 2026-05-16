@@ -18,6 +18,12 @@ spring:
       mode: ${BIDS_SQL_INIT_MODE:never}
 
 bids:
+  export:
+    client:
+      base-url: ${BIDS_EXPORT_CLIENT_BASE_URL:http://localhost:8083}
+      internal-token: ${BIDS_EXPORT_INTERNAL_TOKEN:change-me}
+      connect-timeout-seconds: 5
+      read-timeout-seconds: 300
   security:
     user-header: X-Bids-User
     roles-header: X-Bids-Roles

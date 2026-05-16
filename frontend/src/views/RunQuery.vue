@@ -29,7 +29,9 @@
           <el-table-column prop="name" label="显示名称" min-width="140" />
           <el-table-column prop="datasourceCode" label="数据源" width="120" />
           <el-table-column prop="status" label="状态" width="100" />
-          <el-table-column prop="updatedAt" label="更新时间" min-width="180" />
+          <el-table-column prop="updatedAt" label="更新时间" min-width="180">
+            <template #default="{ row }">{{ formatDateTime(row.updatedAt) }}</template>
+          </el-table-column>
           <el-table-column label="操作" width="280" fixed="right">
             <template #default="{ row }">
               <el-button link type="primary" @click="openModelDrawer(row.id)">编辑</el-button>
@@ -47,7 +49,9 @@
           <el-table-column prop="name" label="显示名称" min-width="140" />
           <el-table-column prop="datasourceCode" label="数据源" width="120" />
           <el-table-column prop="status" label="状态" width="100" />
-          <el-table-column prop="updatedAt" label="更新时间" min-width="180" />
+          <el-table-column prop="updatedAt" label="更新时间" min-width="180">
+            <template #default="{ row }">{{ formatDateTime(row.updatedAt) }}</template>
+          </el-table-column>
           <el-table-column label="操作" width="120" fixed="right">
             <template #default="{ row }">
               <el-button link type="primary" @click="handleRunService(row)">运行</el-button>
@@ -193,6 +197,45 @@
                 <pre class="sql-pre-block">{{ result.finalSql }}</pre>
               </div>
             </el-tab-pane>
+            <el-tab-pane label="服务导出" name="export">
+              <p class="export-hint">导出当前表单条件下的全量数据，与上方表格分页无关。</p>
+              <div v-if="exportEstimate" class="export-estimate">
+                <span v-if="exportEstimate.estimatedRows != null">约 {{ exportEstimate.estimatedRows }} 行</span>
+                <span v-else>行数预估超时，建议异步导出</span>
+                <el-tag size="small" class="ml">{{ exportModeLabel }}</el-tag>
+              </div>
+              <div class="export-actions">
+                <el-button type="primary" :loading="exporting" :disabled="!canExport" @click="handleExport">导出</el-button>
+                <el-button :loading="estimating" :disabled="!canExport" @click="handleEstimate">预估行数</el-button>
+              </div>
+              <el-progress
+                v-if="exportTask && exportTask.status === 'RUNNING'"
+                :percentage="exportTask.progressPct"
+                class="export-progress"
+              />
+              <el-button
+                v-if="exportTask && exportTask.downloadReady"
+                type="success"
+                size="small"
+                class="mt"
+                @click="downloadExportTask"
+              >
+                下载 zip
+              </el-button>
+              <el-table v-if="exportTasks.length" :data="exportTasks" border stripe size="small" class="export-table">
+                <el-table-column prop="taskId" label="任务ID" min-width="200" show-overflow-tooltip />
+                <el-table-column prop="modelCode" label="服务" width="120" />
+                <el-table-column prop="status" label="状态" width="100" />
+                <el-table-column prop="fileFormat" label="格式" width="80" />
+                <el-table-column label="操作" width="100">
+                  <template #default="{ row }">
+                    <el-button v-if="row.downloadReady" link type="primary" @click="downloadExportTaskById(row.taskId)">
+                      下载
+                    </el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </el-tab-pane>
           </el-tabs>
         </el-card>
       </div>
@@ -270,7 +313,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="最大行数">
-          <el-input-number v-model="modelForm.maxRows" :min="1" :max="10000" />
+          <el-input-number v-model="modelForm.maxRows" :min="1" :max="500000" />
         </el-form-item>
         <el-form-item label="SQL 模板">
           <el-input v-model="modelForm.sqlTemplate" type="textarea" :rows="10" placeholder="Freemarker 模板，命名参数 :param" />
@@ -348,7 +391,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
@@ -363,9 +406,16 @@ import {
   offlineSqlModel,
   publishSqlModel,
   updateSqlModel,
-  validateSqlModel
+  validateSqlModel,
+  estimateExport,
+  syncExportModel,
+  createExportTask,
+  getExportTask,
+  listExportTasks,
+  exportTaskDownloadUrl
 } from '../api'
 import { sessionAuthOpts } from '../sessionAuth.js'
+import { formatDateTime, parseContentDispositionFileName } from '../dateFormat.js'
 
 /** 多选下拉中「全选」使用的哨兵值，不会作为真实参数提交 */
 const MULTI_SELECT_ALL = '__BIDS_SELECT_ALL__'
@@ -425,8 +475,24 @@ const modelForm = reactive({
 })
 const logDialogVisible = ref(false)
 const logDetail = ref(null)
-/** 查询结果区 Tab：result=表格，raw=原始响应，script=运行脚本 */
+/** 查询结果区 Tab：result=表格，raw=原始响应，script=运行脚本，export=服务导出 */
 const resultTab = ref('result')
+
+const exportEstimate = ref(null)
+const exportTask = ref(null)
+const exportTasks = ref([])
+const exporting = ref(false)
+const estimating = ref(false)
+let exportPollTimer = null
+
+const canExport = computed(() => !!result.value && !!queryState.modelCode)
+const exportModeLabel = computed(() => {
+  const m = exportEstimate.value?.mode
+  if (m === 'SYNC') return '同步 xlsx'
+  if (m === 'ASYNC') return '异步 zip'
+  if (m === 'ASYNC_SUGGESTED') return '建议异步'
+  return m || ''
+})
 
 /** 分页：默认每页条数；服务运行页大小前端上限 */
 const DEFAULT_PAGE_SIZE = 200
@@ -719,7 +785,14 @@ async function handleLoadForm() {
           formValues[k] = opts.length ? opts[0].value : null
         }
       } else if (field.fieldType === 'TEXT' && (field.required || fieldSelectOptions(field).length > 0)) {
-        formValues[k] = hasDef ? dv : field.required ? null : ''
+        const opts = fieldSelectOptions(field)
+        if (hasDef) {
+          formValues[k] = dv
+        } else if (!isMultiProductCsv(field) && opts.length) {
+          formValues[k] = opts[0].value
+        } else {
+          formValues[k] = field.required ? null : ''
+        }
       } else {
         formValues[k] = hasDef ? dv : field.required ? null : ''
       }
@@ -902,6 +975,141 @@ async function copyFinalSql() {
     }
   }
 }
+
+function buildExportParameters() {
+  const params = {}
+  for (const [k, v] of Object.entries(formValues)) {
+    if (v === '' || v === null || v === undefined) continue
+    if (Array.isArray(v)) {
+      params[k] = v.filter((x) => x !== MULTI_SELECT_ALL).join(',')
+    } else {
+      params[k] = v
+    }
+  }
+  return params
+}
+
+/** 进入服务导出 Tab 时加载任务列表并自动预估（与设计 §11 一致） */
+watch(resultTab, (tab) => {
+  if (tab !== 'export' || !canExport.value) return
+  refreshExportTasks()
+  if (!exportEstimate.value && !estimating.value) {
+    handleEstimate()
+  }
+})
+
+async function handleEstimate() {
+  estimating.value = true
+  try {
+    const auth = authOpts()
+    exportEstimate.value = await estimateExport(queryState.modelCode, buildExportParameters(), auth.username, auth.password)
+  } catch (e) {
+    ElMessage.error(e.message)
+  } finally {
+    estimating.value = false
+  }
+}
+
+async function handleExport() {
+  exporting.value = true
+  try {
+    if (!exportEstimate.value) {
+      await handleEstimate()
+    }
+    const auth = authOpts()
+    const params = buildExportParameters()
+    const mode = exportEstimate.value?.mode
+    if (mode === 'ASYNC' || mode === 'ASYNC_SUGGESTED') {
+      const created = await createExportTask(queryState.modelCode, params, auth.username, auth.password)
+      exportTask.value = { taskId: created.taskId, status: created.status, progressPct: 0, downloadReady: false }
+      startExportPoll(created.taskId)
+      ElMessage.success('已创建异步导出任务')
+    } else {
+      const { blob, fileName } = await syncExportModel(queryState.modelCode, params, auth.username, auth.password)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = fileName
+      a.click()
+      URL.revokeObjectURL(url)
+      ElMessage.success('导出完成')
+    }
+    await refreshExportTasks()
+  } catch (e) {
+    ElMessage.error(e.message)
+  } finally {
+    exporting.value = false
+  }
+}
+
+function startExportPoll(taskId) {
+  stopExportPoll()
+  exportPollTimer = setInterval(async () => {
+    try {
+      const auth = authOpts()
+      const t = await getExportTask(taskId, auth.username, auth.password)
+      exportTask.value = t
+      if (t.status === 'SUCCESS' || t.status === 'FAILED' || t.status === 'CANCELLED') {
+        stopExportPoll()
+        await refreshExportTasks()
+      }
+    } catch {
+      stopExportPoll()
+    }
+  }, 3000)
+}
+
+function stopExportPoll() {
+  if (exportPollTimer) {
+    clearInterval(exportPollTimer)
+    exportPollTimer = null
+  }
+}
+
+async function refreshExportTasks() {
+  try {
+    const auth = authOpts()
+    exportTasks.value = await listExportTasks(20, auth.username, auth.password)
+  } catch {
+    exportTasks.value = []
+  }
+}
+
+function downloadExportTask() {
+  if (exportTask.value?.taskId) downloadExportTaskById(exportTask.value.taskId)
+}
+
+async function downloadExportTaskById(taskId) {
+  const auth = authOpts()
+  const url = exportTaskDownloadUrl(taskId)
+  const response = await fetch(url, {
+    headers: { Authorization: `Basic ${btoa(`${auth.username}:${auth.password}`)}` },
+    redirect: 'manual'
+  })
+  if (response.status === 302 || response.status === 301) {
+    const location = response.headers.get('Location')
+    if (location) {
+      window.open(location, '_blank', 'noopener,noreferrer')
+      return
+    }
+  }
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    ElMessage.error(data.message || '下载失败')
+    return
+  }
+  const blob = await response.blob()
+  const disposition = response.headers.get('Content-Disposition') || ''
+  const fileName = parseContentDispositionFileName(disposition, `${taskId}.zip`)
+  const objectUrl = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = objectUrl
+  a.download = fileName
+  a.click()
+  URL.revokeObjectURL(objectUrl)
+}
+
+onUnmounted(stopExportPoll)
 </script>
 
 <style scoped>
@@ -1000,5 +1208,28 @@ async function copyFinalSql() {
   font-size: 12px;
   white-space: pre-wrap;
   word-break: break-all;
+}
+.export-hint {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.export-estimate {
+  margin-bottom: 12px;
+}
+.export-estimate .ml {
+  margin-left: 8px;
+}
+.export-actions {
+  margin-bottom: 12px;
+}
+.export-progress {
+  margin-bottom: 12px;
+}
+.export-table {
+  margin-top: 16px;
+}
+.mt {
+  margin-bottom: 12px;
 }
 </style>
