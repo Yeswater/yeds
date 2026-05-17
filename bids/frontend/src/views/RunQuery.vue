@@ -415,6 +415,7 @@ import {
   exportTaskDownloadUrl
 } from '../api'
 import { sessionAuthOpts } from '../sessionAuth.js'
+import { refreshSessionIfNeeded } from '../iamSession.js'
 import { formatDateTime, parseContentDispositionFileName } from '../dateFormat.js'
 
 /** 多选下拉中「全选」使用的哨兵值，不会作为真实参数提交 */
@@ -723,7 +724,7 @@ async function openLogForModel(row) {
   }
   try {
     const auth = authOpts()
-    logDetail.value = await fetchExecuteLog(executeId, auth.username, auth.password)
+    logDetail.value = await fetchExecuteLog(executeId, auth)
     logDialogVisible.value = true
   } catch (e) {
     ElMessage.error(e.message)
@@ -738,7 +739,7 @@ async function handleLoadForm() {
   loadingForm.value = true
   try {
     const auth = authOpts()
-    const data = await loadForm(queryState.modelCode, auth.username, auth.password)
+    const data = await loadForm(queryState.modelCode, auth)
     formConfig.value = data
     result.value = null
     apiResultSnapshot.value = null
@@ -819,7 +820,7 @@ async function handleExecute() {
       }
     }
     const auth = authOpts()
-    const data = await executeModel(queryState.modelCode, payload, auth.username, auth.password, {
+    const data = await executeModel(queryState.modelCode, payload, auth, {
       currentPage: runPageNo.value,
       pageSize: Math.min(runPageSize.value, MAX_PAGE_SIZE)
     })
@@ -1002,7 +1003,7 @@ async function handleEstimate() {
   estimating.value = true
   try {
     const auth = authOpts()
-    exportEstimate.value = await estimateExport(queryState.modelCode, buildExportParameters(), auth.username, auth.password)
+    exportEstimate.value = await estimateExport(queryState.modelCode, buildExportParameters(), auth)
   } catch (e) {
     ElMessage.error(e.message)
   } finally {
@@ -1020,12 +1021,12 @@ async function handleExport() {
     const params = buildExportParameters()
     const mode = exportEstimate.value?.mode
     if (mode === 'ASYNC' || mode === 'ASYNC_SUGGESTED') {
-      const created = await createExportTask(queryState.modelCode, params, auth.username, auth.password)
+      const created = await createExportTask(queryState.modelCode, params, auth)
       exportTask.value = { taskId: created.taskId, status: created.status, progressPct: 0, downloadReady: false }
       startExportPoll(created.taskId)
       ElMessage.success('已创建异步导出任务')
     } else {
-      const { blob, fileName } = await syncExportModel(queryState.modelCode, params, auth.username, auth.password)
+      const { blob, fileName } = await syncExportModel(queryState.modelCode, params, auth)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -1047,7 +1048,7 @@ function startExportPoll(taskId) {
   exportPollTimer = setInterval(async () => {
     try {
       const auth = authOpts()
-      const t = await getExportTask(taskId, auth.username, auth.password)
+      const t = await getExportTask(taskId, auth)
       exportTask.value = t
       if (t.status === 'SUCCESS' || t.status === 'FAILED' || t.status === 'CANCELLED') {
         stopExportPoll()
@@ -1069,7 +1070,7 @@ function stopExportPoll() {
 async function refreshExportTasks() {
   try {
     const auth = authOpts()
-    exportTasks.value = await listExportTasks(20, auth.username, auth.password)
+    exportTasks.value = await listExportTasks(20, auth)
   } catch {
     exportTasks.value = []
   }
@@ -1080,12 +1081,19 @@ function downloadExportTask() {
 }
 
 async function downloadExportTaskById(taskId) {
-  const auth = authOpts()
+  let auth = await refreshSessionIfNeeded(authOpts(), false)
   const url = exportTaskDownloadUrl(taskId)
-  const response = await fetch(url, {
-    headers: { Authorization: `Basic ${btoa(`${auth.username}:${auth.password}`)}` },
+  let response = await fetch(url, {
+    headers: { Authorization: `Bearer ${auth.accessToken}` },
     redirect: 'manual'
   })
+  if (response.status === 401) {
+    auth = await refreshSessionIfNeeded(auth, true)
+    response = await fetch(url, {
+      headers: { Authorization: `Bearer ${auth.accessToken}` },
+      redirect: 'manual'
+    })
+  }
   if (response.status === 302 || response.status === 301) {
     const location = response.headers.get('Location')
     if (location) {

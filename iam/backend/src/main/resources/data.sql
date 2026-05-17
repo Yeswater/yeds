@@ -43,7 +43,7 @@ where r.role_code = 'AUDITOR';
 
 insert into iam_policy (policy_name, policy_type, expression, status, gmt_create, gmt_modified)
 values ('办公网段白名单', 'IP', '127.0.0.1/32,10.10.0.0/16', 1, current_timestamp, current_timestamp),
-       ('工作时段限制', 'TIME_WINDOW', '08:00-22:00', 1, current_timestamp, current_timestamp),
+       ('工作时段限制', 'TIME_WINDOW', '00:00-23:59', 1, current_timestamp, current_timestamp),
        ('生产环境标签限制', 'ENV_TAG', 'prod,staging', 1, current_timestamp, current_timestamp);
 
 insert into iam_role_policy (role_id, policy_id, gmt_create, gmt_modified)

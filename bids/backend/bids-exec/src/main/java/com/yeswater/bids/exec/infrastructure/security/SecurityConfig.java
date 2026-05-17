@@ -1,5 +1,8 @@
 package com.yeswater.bids.exec.infrastructure.security;
 
+import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +31,8 @@ import java.util.List;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(SecurityConfig.class);
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, HeaderAuthenticationFilter headerAuthenticationFilter)
             throws Exception {
@@ -37,6 +42,14 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(headerAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .httpBasic(Customizer.withDefaults())
+                .exceptionHandling(ex -> ex.accessDeniedHandler((request, response, accessDeniedException) -> {
+                    String principal = request.getUserPrincipal() == null ? "anonymous" : request.getUserPrincipal().getName();
+                    LOGGER.warn("访问拒绝, path={}, principal={}, message={}",
+                            request.getRequestURI(),
+                            principal,
+                            accessDeniedException.getMessage());
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                }))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/config/**").hasRole("ADMIN")

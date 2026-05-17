@@ -1,6 +1,6 @@
 package com.yeswater.bids.exec.infrastructure.datasource;
 
-import com.yeswater.bids.exec.infrastructure.web.ApiException;
+import com.yeswater.foundation.common.web.ApiException;
 import com.yeswater.bids.exec.domain.model.DataSourceConfig;
 import com.yeswater.bids.exec.infrastructure.persistence.ConfigQueryRepository;
 import com.zaxxer.hikari.HikariConfig;

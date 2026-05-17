@@ -1,6 +1,6 @@
 package com.yeswater.bids.exec.application;
 
-import com.yeswater.bids.exec.infrastructure.web.ApiException;
+import com.yeswater.foundation.common.web.ApiException;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import org.springframework.http.HttpStatus;

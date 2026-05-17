@@ -51,6 +51,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { logoutCurrentUser } from '../services/auth'
+import { switchToBids } from '../platformSwitch'
 import { useAuthStore } from '../stores/authStore'
 
 const route = useRoute()
@@ -84,7 +85,7 @@ const platformDefaultRoute = {
   BIDS: '/platform/bids',
   EDM: '/platform/edm'
 }
-const bidsFrontendUrl = import.meta.env.VITE_BIDS_FRONTEND_URL || 'http://127.0.0.1:5173/run/run'
+const BIDS_ENTRY_PATH = '/run/svc'
 
 const currentMenus = computed(() => platformMenus[activePlatform.value] || platformMenus.IAM)
 
@@ -99,7 +100,7 @@ function onSelectMenu(path) {
 function switchPlatform(platformName) {
   if (platformName === 'BIDS') {
     localStorage.setItem('iam_active_platform', 'BIDS')
-    window.location.href = bidsFrontendUrl
+    switchToBids(BIDS_ENTRY_PATH)
     return
   }
   activePlatform.value = platformName

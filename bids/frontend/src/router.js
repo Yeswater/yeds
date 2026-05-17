@@ -1,8 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { readSession } from './authStorage.js'
+import { isSessionExpired, readSession } from './authStorage.js'
+import { refreshSessionIfNeeded } from './iamSession.js'
 import AdminLayout from './layouts/AdminLayout.vue'
 import RunQuery from './views/RunQuery.vue'
-import Login from './views/Login.vue'
+import IamRedirect from './views/IamRedirect.vue'
+import IamCallback from './views/IamCallback.vue'
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -10,7 +12,13 @@ export const router = createRouter({
     {
       path: '/login',
       name: 'login',
-      component: Login,
+      component: IamRedirect,
+      meta: { public: true }
+    },
+    {
+      path: '/auth/iam/callback',
+      name: 'iam-callback',
+      component: IamCallback,
       meta: { public: true }
     },
     { path: '/admin/sql', redirect: '/run/svc' },
@@ -30,15 +38,21 @@ export const router = createRouter({
   ]
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const session = readSession()
+  const available = session && !isSessionExpired(session)
   if (to.meta.public) {
-    if (session && to.name === 'login') {
+    if (available && to.name === 'login') {
       return { path: '/run/svc' }
     }
     return true
   }
   if (!session) {
+    return { path: '/login', query: { redirect: to.fullPath } }
+  }
+  try {
+    await refreshSessionIfNeeded(session, !available)
+  } catch {
     return { path: '/login', query: { redirect: to.fullPath } }
   }
   return true

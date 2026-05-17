@@ -6,6 +6,8 @@ import com.yeswater.iam.domain.model.PolicyRuleInfo;
 import com.yeswater.iam.interfaces.dto.AuthorizeCheckRequest;
 import com.yeswater.iam.interfaces.dto.AuthorizeCheckResponse;
 import com.yeswater.iam.interfaces.dto.UserPermissionsResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.net.InetAddress;
@@ -16,6 +18,8 @@ import java.util.Map;
 
 @Service
 public class AuthorizeApplicationService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(AuthorizeApplicationService.class);
 
     private final IamJdbcRepository iamJdbcRepository;
 
@@ -55,6 +59,14 @@ public class AuthorizeApplicationService {
                 )
         );
         if (!allowed) {
+            LOGGER.warn("IAM鉴权拒绝, userId={}, resource={}, action={}, tenantCode={}, envTag={}, detail={}, clientIp={}",
+                    request.userId(),
+                    request.resource(),
+                    request.action(),
+                    request.tenantCode(),
+                    request.envTag(),
+                    detail,
+                    clientIp);
             if (!roleAllowed) {
                 iamJdbcRepository.findUserById(request.userId()).ifPresent(user -> iamJdbcRepository.saveRiskEvent(
                         "UNAUTHORIZED_ACCESS",
@@ -66,7 +78,7 @@ public class AuthorizeApplicationService {
             }
             detectHighFrequencyDeny(request.userId());
         }
-        return new AuthorizeCheckResponse(request.userId(), request.resource(), request.action(), allowed);
+        return new AuthorizeCheckResponse(request.userId(), request.resource(), request.action(), allowed, detail);
     }
 
     /**

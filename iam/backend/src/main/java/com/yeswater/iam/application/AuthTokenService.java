@@ -25,7 +25,7 @@ public class AuthTokenService {
     /**
      * 生成访问令牌。
      */
-    public String generateAccessToken(Long userId, String username, List<String> roles) {
+    public String generateAccessToken(Long userId, String username, String tenantCode, List<String> roles) {
         Instant now = Instant.now();
         Instant expiredAt = now.plusSeconds(jwtProperties.getAccessTokenTtlSeconds());
         return Jwts.builder()
@@ -34,6 +34,8 @@ public class AuthTokenService {
                 .issuer(jwtProperties.getIssuer())
                 .audience().add(jwtProperties.getAudience()).and()
                 .claim("username", username)
+                .claim("tenant_code", tenantCode)
+                .claim("tenant_id", tenantCode)
                 .claim("roles", roles)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiredAt))

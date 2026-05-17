@@ -73,6 +73,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { buildBidsSsoCallbackUrl, buildBidsLoginEntryUrl } from '../../platformSwitch'
 
 const HISTORY_KEY = 'bids_entry_history_v1'
 const keyword = ref('')
@@ -188,6 +189,11 @@ function recordVisit(module, url) {
 function openModule(module) {
   const url = getModuleUrl(module)
   recordVisit(module, url)
+  if (module.key === 'bids-web') {
+    const target = buildBidsSsoCallbackUrl('/run/svc') || buildBidsLoginEntryUrl('/run/svc')
+    window.location.assign(target)
+    return
+  }
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 

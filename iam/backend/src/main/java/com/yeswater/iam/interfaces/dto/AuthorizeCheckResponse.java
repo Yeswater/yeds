@@ -4,6 +4,7 @@ public record AuthorizeCheckResponse(
         Long userId,
         String resource,
         String action,
-        boolean allowed
+        boolean allowed,
+        String detail
 ) {
 }

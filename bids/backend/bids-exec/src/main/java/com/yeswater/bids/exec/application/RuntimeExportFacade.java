@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yeswater.bids.exec.domain.model.ExecuteLog;
 import com.yeswater.bids.exec.domain.model.ResultColumn;
 import com.yeswater.bids.exec.infrastructure.persistence.ConfigQueryRepository;
-import com.yeswater.bids.exec.infrastructure.web.ApiException;
+import com.yeswater.foundation.common.web.ApiException;
 import com.yeswater.bids.exec.interfaces.dto.ExportEstimateResponse;
 import com.yeswater.bids.exec.interfaces.dto.ExportParametersRequest;
 import com.yeswater.bids.exec.interfaces.dto.ExportTaskCreateResponse;

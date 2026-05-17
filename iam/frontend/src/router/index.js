@@ -8,6 +8,11 @@ const routes = [
     component: () => import('../views/LoginView.vue')
   },
   {
+    path: '/auth/sso-callback',
+    name: 'sso-callback',
+    component: () => import('../views/SsoCallbackView.vue')
+  },
+  {
     path: '/',
     component: () => import('../layouts/AdminLayout.vue'),
     meta: { requiresAuth: true },
@@ -89,7 +94,8 @@ router.beforeEach((to) => {
     }
   }
   if (to.path === '/login' && isLoggedIn()) {
-    return { path: '/abac/policy' }
+    const redirect = typeof to.query.redirect === 'string' ? to.query.redirect : '/abac/policy'
+    return { path: redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/abac/policy' }
   }
   return true
 })

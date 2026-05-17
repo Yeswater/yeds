@@ -17,7 +17,7 @@ public class IamLoginPageController {
             @RequestParam(value = "redirect_uri", required = false) String redirectUri
     ) {
         String targetRedirectUri = escapeHtml(redirectUri == null || redirectUri.isBlank()
-                ? "http://127.0.0.1:8080/auth/iam/callback"
+                ? "http://127.0.0.1:5181/auth/sso-callback?redirect=/abac/policy"
                 : redirectUri);
         String htmlTemplate = """
                 <!doctype html>

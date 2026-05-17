@@ -22,9 +22,12 @@ spring:
 bids:
   security:
     user-header: X-Bids-User
+    user-id-header: X-Bids-User-Id
     roles-header: X-Bids-Roles
     trusted-header:
-      enabled: false
+      enabled: ${BIDS_TRUSTED_HEADER_ENABLED:true}
+      token-header: X-Bids-Trusted-Token
+      token: ${BIDS_TRUSTED_HEADER_TOKEN:yeds-bids-trusted-v1}
     admin:
       username: ${BIDS_ADMIN_USERNAME:admin}
       password: ${BIDS_ADMIN_PASSWORD:admin}

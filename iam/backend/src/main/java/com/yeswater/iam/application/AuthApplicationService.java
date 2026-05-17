@@ -63,7 +63,12 @@ public class AuthApplicationService {
         }
 
         List<String> roleCodes = iamJdbcRepository.listRoleCodesByUserId(userInfo.id());
-        String accessToken = authTokenService.generateAccessToken(userInfo.id(), userInfo.username(), roleCodes);
+        String accessToken = authTokenService.generateAccessToken(
+                userInfo.id(),
+                userInfo.username(),
+                userInfo.tenantCode(),
+                roleCodes
+        );
         String refreshToken = UUID.randomUUID().toString().replace("-", "");
         LocalDateTime refreshExpiredAt = LocalDateTime.now().plusSeconds(jwtProperties.getRefreshTokenTtlSeconds());
         iamJdbcRepository.saveTokenSession(userInfo.id(), refreshToken, refreshExpiredAt);
@@ -139,7 +144,12 @@ public class AuthApplicationService {
                 .orElseThrow(() -> new BusinessException("用户不存在"));
         iamJdbcRepository.markOidcAuthCodeUsed(authCodeInfo.id());
         List<String> roleCodes = iamJdbcRepository.listRoleCodesByUserId(userInfo.id());
-        String accessToken = authTokenService.generateAccessToken(userInfo.id(), userInfo.username(), roleCodes);
+        String accessToken = authTokenService.generateAccessToken(
+                userInfo.id(),
+                userInfo.username(),
+                userInfo.tenantCode(),
+                roleCodes
+        );
         String refreshToken = UUID.randomUUID().toString().replace("-", "");
         LocalDateTime refreshExpiredAt = LocalDateTime.now().plusSeconds(jwtProperties.getRefreshTokenTtlSeconds());
         iamJdbcRepository.saveTokenSession(userInfo.id(), refreshToken, refreshExpiredAt);
@@ -177,7 +187,12 @@ public class AuthApplicationService {
         IamUserInfo userInfo = iamJdbcRepository.findUserById(tokenSessionInfo.userId())
                 .orElseThrow(() -> new BusinessException("用户不存在"));
         List<String> roleCodes = iamJdbcRepository.listRoleCodesByUserId(userInfo.id());
-        String accessToken = authTokenService.generateAccessToken(userInfo.id(), userInfo.username(), roleCodes);
+        String accessToken = authTokenService.generateAccessToken(
+                userInfo.id(),
+                userInfo.username(),
+                userInfo.tenantCode(),
+                roleCodes
+        );
         iamJdbcRepository.saveAuditLog("AUTH_REFRESH", userInfo.username(), userInfo.id(), null, null, "ALLOW", "令牌刷新成功", clientIp);
         return new AuthTokenResponse(
                 accessToken,

@@ -10,9 +10,6 @@ import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
-
 @Configuration
 @EnableWebFluxSecurity
 @EnableConfigurationProperties(GatewayProperties.class)
@@ -27,6 +24,8 @@ public class SecurityConfig {
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(exchanges -> exchanges
                         .pathMatchers("/actuator/**", "/public/**").permitAll()
+                        .pathMatchers("/iam/**").permitAll()
+                        .pathMatchers("/api/iam/auth/**").permitAll()
                         .pathMatchers(HttpMethod.GET, "/mock/public", "/api/mock/public").permitAll()
                         .anyExchange().authenticated()
                 )
@@ -36,14 +35,10 @@ public class SecurityConfig {
     }
 
     /**
-     * 使用对称密钥校验 JWT。
+     * 使用 IAM JWK 进行 JWT 验签。
      */
     @Bean
     public ReactiveJwtDecoder jwtDecoder(GatewayProperties properties) {
-        SecretKeySpec keySpec = new SecretKeySpec(
-                properties.jwtSecret().getBytes(StandardCharsets.UTF_8),
-                "HmacSHA256"
-        );
-        return NimbusReactiveJwtDecoder.withSecretKey(keySpec).build();
+        return NimbusReactiveJwtDecoder.withJwkSetUri(properties.iamJwkSetUri()).build();
     }
 }
