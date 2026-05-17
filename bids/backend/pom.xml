@@ -31,10 +31,16 @@
         <jsqlparser.version>5.3</jsqlparser.version>
         <fastexcel.version>1.3.0</fastexcel.version>
         <aws.sdk.version>2.29.45</aws.sdk.version>
+        <yeds.foundation.version>0.0.1-SNAPSHOT</yeds.foundation.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>com.yeswater.foundation</groupId>
+                <artifactId>common-web-starter</artifactId>
+                <version>${yeds.foundation.version}</version>
+            </dependency>
             <dependency>
                 <groupId>com.yeswater</groupId>
                 <artifactId>bids-sql-dialect</artifactId>

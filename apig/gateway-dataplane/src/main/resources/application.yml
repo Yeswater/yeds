@@ -13,5 +13,11 @@ management:
 
 apig:
   gateway:
-    jwt-secret: "change-me-to-at-least-32-bytes-secret-key"
+    iam-jwk-set-uri: ${IAM_JWK_SET_URI:http://127.0.0.1:8091/api/iam/auth/jwks}
+    iam-authorize-check-url: ${IAM_AUTHORIZE_CHECK_URL:http://127.0.0.1:8091/api/iam/authorize/check}
+    iam-internal-access-token: ${IAM_INTERNAL_ACCESS_TOKEN:yeds-iam-internal-v1}
+    trusted-header-token: ${BIDS_TRUSTED_HEADER_TOKEN:yeds-bids-trusted-v1}
+    bids-config-base-url: ${BIDS_CONFIG_BASE_URL:http://127.0.0.1:8081}
+    bids-exec-base-url: ${BIDS_EXEC_BASE_URL:http://127.0.0.1:8082}
+    iam-base-url: ${IAM_BASE_URL:http://127.0.0.1:8091}
     rate-limit-per-minute: 120

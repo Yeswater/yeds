@@ -1,6 +1,6 @@
 package com.yeswater.bids.config.application;
 
-import com.yeswater.bids.config.infrastructure.web.ApiException;
+import com.yeswater.foundation.common.web.ApiException;
 import com.yeswater.bids.config.interfaces.dto.DataSourceRequest;
 import com.yeswater.bids.config.interfaces.dto.SqlModelListItem;
 import com.yeswater.bids.config.interfaces.dto.SqlModelRequest;

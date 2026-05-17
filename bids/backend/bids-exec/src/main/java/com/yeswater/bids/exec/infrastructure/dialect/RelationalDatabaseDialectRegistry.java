@@ -1,6 +1,6 @@
 package com.yeswater.bids.exec.infrastructure.dialect;
 
-import com.yeswater.bids.exec.infrastructure.web.ApiException;
+import com.yeswater.foundation.common.web.ApiException;
 import com.yeswater.bids.sql.dialect.SqlDialectType;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;

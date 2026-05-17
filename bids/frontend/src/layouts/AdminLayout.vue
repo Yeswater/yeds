@@ -1,7 +1,19 @@
 <template>
   <el-container class="admin-root">
     <el-header class="admin-header">
-      <div class="brand" @click="goHome">BIDS</div>
+      <el-dropdown trigger="click" @command="onPlatformCommand">
+        <span class="brand-switcher">
+          <span class="brand">BIDS</span>
+          <span class="caret">▼</span>
+        </span>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item command="bids">BIDS</el-dropdown-item>
+            <el-dropdown-item command="iam">IAM</el-dropdown-item>
+            <el-dropdown-item command="edm">EDM</el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
       <div class="header-fill" />
       <div class="header-actions">
         <span class="theme-label">主题</span>
@@ -50,7 +62,9 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { clearSession, readSession, readThemePreference, writeThemePreference } from '../authStorage.js'
+import { readSession, readThemePreference, writeThemePreference } from '../authStorage.js'
+import { logoutSession } from '../iamSession.js'
+import { switchToIam } from '../platformSwitch.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -92,9 +106,24 @@ function goHome() {
   router.push('/run/svc')
 }
 
-function onUserCommand(cmd) {
+function onPlatformCommand(platform) {
+  if (platform === 'bids') {
+    goHome()
+    return
+  }
+  if (platform === 'iam') {
+    switchToIam('/abac/policy')
+    return
+  }
+  const edmUrl = import.meta.env.VITE_EDM_APP_URL
+  if (edmUrl && edmUrl !== '#') {
+    window.location.assign(edmUrl)
+  }
+}
+
+async function onUserCommand(cmd) {
   if (cmd === 'logout') {
-    clearSession()
+    await logoutSession()
     router.replace('/login')
   }
 }
@@ -118,8 +147,14 @@ function onUserCommand(cmd) {
   font-weight: 700;
   letter-spacing: 0.06em;
   color: var(--el-color-primary);
-  cursor: pointer;
+  cursor: default;
   user-select: none;
+}
+.brand-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
 }
 .header-fill {
   flex: 1;

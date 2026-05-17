@@ -1,0 +1,9 @@
+package com.yeswater.iam.interfaces.dto;
+
+import java.util.List;
+
+public record UserPermissionsResponse(
+        Long userId,
+        List<String> permissions
+) {
+}
