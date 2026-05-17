@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
 
 @RestController
 @RequestMapping("/api/iam")
@@ -152,9 +153,64 @@ public class IamManagementController {
                 request.resource(),
                 request.action(),
                 request.expression(),
+                request.createdBy(),
+                request.owner(),
+                request.modifiedBy(),
                 resolveClientIp(httpServletRequest)
         );
         return ResponseEntity.ok(Map.of("policyId", policyId));
+    }
+
+    /**
+     * 查询 ABAC 策略列表。
+     */
+    @GetMapping("/abac-policies")
+    public ResponseEntity<List<Map<String, Object>>> listAbacPolicies(
+            @RequestParam(value = "policyName", required = false) String policyName,
+            @RequestParam(value = "resourceCode", required = false) String resourceCode,
+            @RequestParam(value = "actionCode", required = false) String actionCode,
+            @RequestParam(value = "limit", defaultValue = "50") int limit
+    ) {
+        List<Map<String, Object>> rows = iamManagementApplicationService
+                .listAbacPolicies(policyName, resourceCode, actionCode, limit)
+                .stream()
+                .map(item -> {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("id", item.id());
+                    row.put("policyName", item.policyName());
+                    row.put("resourceCode", item.resourceCode());
+                    row.put("actionCode", item.actionCode());
+                    row.put("expression", item.expression());
+                    row.put("status", item.status());
+                    row.put("createdBy", item.createdBy());
+                    row.put("owner", item.owner());
+                    row.put("modifiedBy", item.modifiedBy());
+                    row.put("gmtCreate", item.gmtCreate());
+                    row.put("gmtModified", item.gmtModified());
+                    return row;
+                })
+                .toList();
+        return ResponseEntity.ok(rows);
+    }
+
+    /**
+     * 查询租户主数据。
+     */
+    @GetMapping("/tenants")
+    public ResponseEntity<List<Map<String, Object>>> listTenants(
+            @RequestParam(value = "keyword", required = false) String keyword
+    ) {
+        List<Map<String, Object>> rows = iamManagementApplicationService.listTenants(keyword).stream()
+                .map(item -> {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("id", item.id());
+                    row.put("tenantCode", item.tenantCode());
+                    row.put("tenantName", item.tenantName());
+                    row.put("status", item.status());
+                    return row;
+                })
+                .toList();
+        return ResponseEntity.ok(rows);
     }
 
     /**

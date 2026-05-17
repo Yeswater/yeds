@@ -4,8 +4,10 @@ import com.yeswater.iam.config.SecurityProperties;
 import com.yeswater.iam.domain.exception.BusinessException;
 import com.yeswater.iam.domain.model.ClientCredentialInfo;
 import com.yeswater.iam.domain.model.PermissionChangeRequestInfo;
+import com.yeswater.iam.domain.model.AbacPolicyInfo;
 import com.yeswater.iam.domain.model.RiskEventInfo;
 import com.yeswater.iam.domain.model.TenantFederationInfo;
+import com.yeswater.iam.domain.model.TenantInfo;
 import com.yeswater.iam.infrastructure.repository.IamJdbcRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -115,8 +117,25 @@ public class IamManagementApplicationService {
     /**
      * 创建 ABAC 策略。
      */
-    public Long saveAbacPolicy(String policyName, String resourceCode, String actionCode, String expression, String clientIp) {
-        Long policyId = iamJdbcRepository.saveAbacPolicy(policyName, resourceCode, actionCode, expression);
+    public Long saveAbacPolicy(
+            String policyName,
+            String resourceCode,
+            String actionCode,
+            String expression,
+            String createdBy,
+            String owner,
+            String modifiedBy,
+            String clientIp
+    ) {
+        Long policyId = iamJdbcRepository.saveAbacPolicy(
+                policyName,
+                resourceCode,
+                actionCode,
+                expression,
+                safeOperator(createdBy),
+                safeOperator(owner),
+                safeOperator(modifiedBy)
+        );
         iamJdbcRepository.saveAuditLog(
                 "ABAC_POLICY_CREATE",
                 null,
@@ -128,6 +147,21 @@ public class IamManagementApplicationService {
                 clientIp
         );
         return policyId;
+    }
+
+    /**
+     * 查询 ABAC 策略列表。
+     */
+    public List<AbacPolicyInfo> listAbacPolicies(String policyName, String resourceCode, String actionCode, int limit) {
+        int safeLimit = limit <= 0 ? 50 : Math.min(limit, 200);
+        return iamJdbcRepository.listAbacPolicies(policyName, resourceCode, actionCode, safeLimit);
+    }
+
+    /**
+     * 查询租户主数据。
+     */
+    public List<TenantInfo> listTenants(String keyword) {
+        return iamJdbcRepository.listTenants(keyword);
     }
 
     /**
@@ -277,5 +311,12 @@ public class IamManagementApplicationService {
     public List<Map<String, Object>> inspectStaleClients(int staleDays) {
         int days = staleDays <= 0 ? 90 : staleDays;
         return iamJdbcRepository.inspectStaleClients(days);
+    }
+
+    private String safeOperator(String value) {
+        if (value == null || value.isBlank()) {
+            return "system";
+        }
+        return value.trim();
     }
 }
