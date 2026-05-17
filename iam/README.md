@@ -19,6 +19,16 @@ mvn spring-boot:run
 - username: `admin`
 - password: `admin123`
 
+前端启动：
+
+```bash
+cd iam/frontend
+npm install
+npm run dev
+```
+
+前端默认端口 `5181`，通过 `VITE_API_PROXY_TARGET` 代理后端；若需要直连后端，可配置 `VITE_API_BASE_URL`。
+
 ## 已实现接口（MVP）
 
 ```text

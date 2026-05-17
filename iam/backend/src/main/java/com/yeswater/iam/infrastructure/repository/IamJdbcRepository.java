@@ -8,6 +8,7 @@ import com.yeswater.iam.domain.model.PermissionChangeRequestInfo;
 import com.yeswater.iam.domain.model.PolicyRuleInfo;
 import com.yeswater.iam.domain.model.RiskEventInfo;
 import com.yeswater.iam.domain.model.TenantFederationInfo;
+import com.yeswater.iam.domain.model.TenantInfo;
 import com.yeswater.iam.domain.model.TokenSessionInfo;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -52,6 +53,23 @@ public class IamJdbcRepository {
                     resultSet.getString("resource_code"),
                     resultSet.getString("action_code"),
                     resultSet.getString("expression"),
+                    resultSet.getInt("status"),
+                    resultSet.getString("created_by"),
+                    resultSet.getString("owner"),
+                    resultSet.getString("modified_by"),
+                    resultSet.getTimestamp("gmt_create").toLocalDateTime(),
+                    resultSet.getTimestamp("gmt_modified").toLocalDateTime()
+            );
+        }
+    };
+
+    private static final RowMapper<TenantInfo> TENANT_ROW_MAPPER = new RowMapper<>() {
+        @Override
+        public TenantInfo mapRow(ResultSet resultSet, int rowNum) throws SQLException {
+            return new TenantInfo(
+                    resultSet.getLong("id"),
+                    resultSet.getString("tenant_code"),
+                    resultSet.getString("tenant_name"),
                     resultSet.getInt("status")
             );
         }
@@ -592,6 +610,7 @@ public class IamJdbcRepository {
     public List<AbacPolicyInfo> listActiveAbacPolicies(String resourceCode, String actionCode) {
         String sql = """
                 select id, policy_name, resource_code, action_code, expression, status
+                       , created_by, owner, modified_by, gmt_create, gmt_modified
                 from iam_abac_policy
                 where status = 1
                   and resource_code = ?
@@ -602,17 +621,87 @@ public class IamJdbcRepository {
     }
 
     /**
+     * 查询 ABAC 策略列表（支持筛选）。
+     */
+    public List<AbacPolicyInfo> listAbacPolicies(String policyName, String resourceCode, String actionCode, int limit) {
+        String sql = """
+                select id, policy_name, resource_code, action_code, expression, status
+                       , created_by, owner, modified_by, gmt_create, gmt_modified
+                from iam_abac_policy
+                where status = 1
+                  and (? is null or policy_name like ?)
+                  and (? is null or resource_code like ?)
+                  and (? is null or action_code like ?)
+                order by id desc
+                limit ?
+                """;
+        String safePolicyName = toLikeKeyword(policyName);
+        String safeResourceCode = toLikeKeyword(resourceCode);
+        String safeActionCode = toLikeKeyword(actionCode);
+        return jdbcTemplate.query(
+                sql,
+                ABAC_POLICY_ROW_MAPPER,
+                safePolicyName,
+                safePolicyName,
+                safeResourceCode,
+                safeResourceCode,
+                safeActionCode,
+                safeActionCode,
+                limit
+        );
+    }
+
+    /**
      * 创建 ABAC 策略。
      */
     public Long saveAbacPolicy(String policyName, String resourceCode, String actionCode, String expression) {
         String insertSql = """
                 insert into iam_abac_policy
-                (policy_name, resource_code, action_code, expression, status, gmt_create, gmt_modified)
-                values (?, ?, ?, ?, 1, current_timestamp, current_timestamp)
+                (policy_name, resource_code, action_code, expression, status
+                 , created_by, owner, modified_by, gmt_create, gmt_modified)
+                values (?, ?, ?, ?, 1, ?, ?, ?, current_timestamp, current_timestamp)
                 """;
-        jdbcTemplate.update(insertSql, policyName, resourceCode, actionCode, expression);
+        jdbcTemplate.update(insertSql, policyName, resourceCode, actionCode, expression, "system", "system", "system");
         String querySql = "select id from iam_abac_policy where policy_name = ? order by id desc limit 1";
         return jdbcTemplate.queryForObject(querySql, Long.class, policyName);
+    }
+
+    /**
+     * 创建 ABAC 策略（携带创建与责任信息）。
+     */
+    public Long saveAbacPolicy(
+            String policyName,
+            String resourceCode,
+            String actionCode,
+            String expression,
+            String createdBy,
+            String owner,
+            String modifiedBy
+    ) {
+        String insertSql = """
+                insert into iam_abac_policy
+                (policy_name, resource_code, action_code, expression, status
+                 , created_by, owner, modified_by, gmt_create, gmt_modified)
+                values (?, ?, ?, ?, 1, ?, ?, ?, current_timestamp, current_timestamp)
+                """;
+        jdbcTemplate.update(insertSql, policyName, resourceCode, actionCode, expression, createdBy, owner, modifiedBy);
+        String querySql = "select id from iam_abac_policy where policy_name = ? order by id desc limit 1";
+        return jdbcTemplate.queryForObject(querySql, Long.class, policyName);
+    }
+
+    /**
+     * 查询租户主数据。
+     */
+    public List<TenantInfo> listTenants(String keyword) {
+        String sql = """
+                select id, tenant_code, tenant_name, status
+                from iam_tenant
+                where status = 1
+                  and (? is null or tenant_code like ? or tenant_name like ?)
+                order by id
+                """;
+        String safeKeyword = toLikeKeyword(keyword);
+        return jdbcTemplate.query(sql, TENANT_ROW_MAPPER, safeKeyword, safeKeyword, safeKeyword);
     }
 
     /**
@@ -776,5 +865,12 @@ public class IamJdbcRepository {
                 order by last_used_at
                 """;
         return jdbcTemplate.queryForList(sql, -staleDays);
+    }
+
+    private String toLikeKeyword(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return "%" + value.trim() + "%";
     }
 }

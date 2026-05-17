@@ -158,6 +158,18 @@ create table iam_tenant_federation
 
 create unique index uk_iam_tenant_federation on iam_tenant_federation (tenant_code, issuer, external_tenant);
 
+create table iam_tenant
+(
+    id             bigint primary key auto_increment,
+    tenant_code    varchar(64)  not null,
+    tenant_name    varchar(128) not null,
+    status         tinyint      not null default 1,
+    gmt_create     datetime     not null,
+    gmt_modified   datetime     not null
+);
+
+create unique index uk_iam_tenant_code on iam_tenant (tenant_code);
+
 create table iam_oidc_auth_code
 (
     id               bigint primary key auto_increment,
@@ -198,6 +210,9 @@ create table iam_abac_policy
     action_code     varchar(64)  not null,
     expression      varchar(512) not null,
     status          tinyint      not null default 1,
+    created_by      varchar(64)  not null,
+    owner           varchar(64)  not null,
+    modified_by     varchar(64)  not null,
     gmt_create      datetime     not null,
     gmt_modified    datetime     not null
 );
