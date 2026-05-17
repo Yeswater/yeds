@@ -1,0 +1,122 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: apig-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: apig
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - apig-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: apig-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - apig-net
+
+  nacos:
+    image: nacos/nacos-server:v2.3.2
+    container_name: apig-nacos
+    environment:
+      MODE: standalone
+      PREFER_HOST_MODE: hostname
+    ports:
+      - "8848:8848"
+    networks:
+      - apig-net
+
+  rocketmq-namesrv:
+    image: apache/rocketmq:5.3.1
+    container_name: apig-rmq-namesrv
+    command: sh mqnamesrv
+    ports:
+      - "9876:9876"
+    networks:
+      - apig-net
+
+  rocketmq-broker:
+    image: apache/rocketmq:5.3.1
+    container_name: apig-rmq-broker
+    depends_on:
+      - rocketmq-namesrv
+    command: sh mqbroker -n rocketmq-namesrv:9876 --enable-proxy
+    ports:
+      - "10911:10911"
+      - "10909:10909"
+    networks:
+      - apig-net
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: apig-prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - apig-net
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: apig-grafana
+    depends_on:
+      - prometheus
+    ports:
+      - "3000:3000"
+    networks:
+      - apig-net
+
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: apig-loki
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    networks:
+      - apig-net
+
+  auth-service:
+    build:
+      context: ..
+      dockerfile: auth-service/Dockerfile
+    container_name: apig-auth-service
+    depends_on:
+      - mysql
+      - redis
+    ports:
+      - "8083:8083"
+      - "5005:5005"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      APIG_AUTH_JWT_SECRET: change-me-to-at-least-32-bytes-secret-key
+      JAVA_TOOL_OPTIONS: -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
+    networks:
+      - apig-net
+
+  gateway-dataplane:
+    build:
+      context: ..
+      dockerfile: gateway-dataplane/Dockerfile
+    container_name: apig-gateway-dataplane
+    depends_on:
+      - auth-service
+    ports:
+      - "8080:8080"
+      - "5006:5006"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      APIG_GATEWAY_JWT_SECRET: change-me-to-at-least-32-bytes-secret-key
+      JAVA_TOOL_OPTIONS: -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5006
+    networks:
+      - apig-net
+
+networks:
+  apig-net:
+    driver: bridge
+
+volumes:
+  mysql_data:

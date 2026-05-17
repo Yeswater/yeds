@@ -1,0 +1,11 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: auth-service
+
+apig:
+  auth:
+    jwt-secret: "change-me-to-at-least-32-bytes-secret-key"
+    token-expire-seconds: 3600
