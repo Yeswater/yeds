@@ -1,0 +1,18 @@
+spring:
+  datasource:
+    url: ${BIDS_EXPORT_DB_URL}
+    username: ${BIDS_EXPORT_DB_USERNAME}
+    password: ${BIDS_EXPORT_DB_PASSWORD}
+  sql:
+    init:
+      mode: never
+
+bids:
+  export:
+    internal-token: ${BIDS_EXPORT_INTERNAL_TOKEN}
+    storage:
+      type: ${BIDS_EXPORT_STORAGE_TYPE:s3}
+    rustfs:
+      endpoint: ${BIDS_EXPORT_RUSTFS_ENDPOINT:http://rustfs:9000}
+      access-key: ${BIDS_EXPORT_RUSTFS_ACCESS_KEY:rustfsadmin}
+      secret-key: ${BIDS_EXPORT_RUSTFS_SECRET_KEY:rustfsadmin}

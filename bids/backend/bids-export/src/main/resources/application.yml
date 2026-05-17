@@ -1,0 +1,36 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: bids-export
+  datasource:
+    url: ${BIDS_EXPORT_DB_URL:jdbc:mysql://localhost:3306/bids?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${BIDS_EXPORT_DB_USERNAME:bids}
+    password: ${BIDS_EXPORT_DB_PASSWORD:bids}
+    driver-class-name: ${BIDS_EXPORT_DB_DRIVER:com.mysql.cj.jdbc.Driver}
+  sql:
+    init:
+      mode: ${BIDS_EXPORT_SQL_INIT_MODE:never}
+
+bids:
+  export:
+    internal-token: ${BIDS_EXPORT_INTERNAL_TOKEN:change-me}
+    sync-threshold-rows: 10000
+    max-rows: 500000
+    count-timeout-ms: 3000
+    fetch-size: 1000
+    xlsx-shard-rows: 10000
+    async-pool-size: 2
+    download-url-ttl-seconds: 900
+    temp-dir: ${java.io.tmpdir}/bids-export
+    storage:
+      type: ${BIDS_EXPORT_STORAGE_TYPE:local}
+      local-base-dir: ${BIDS_EXPORT_LOCAL_DIR:/tmp/bids-export-files}
+    rustfs:
+      endpoint: ${BIDS_EXPORT_RUSTFS_ENDPOINT:http://localhost:9000}
+      access-key: ${BIDS_EXPORT_RUSTFS_ACCESS_KEY:rustfsadmin}
+      secret-key: ${BIDS_EXPORT_RUSTFS_SECRET_KEY:rustfsadmin}
+      bucket: ${BIDS_EXPORT_RUSTFS_BUCKET:bids-export}
+      region: us-east-1
+      path-style-access: true
