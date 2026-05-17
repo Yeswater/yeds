@@ -1,8 +1,40 @@
-# IAM 组件（占位）
+# IAM 组件
 
-本目录用于承载 YEDS 平台的 IAM（Identity and Access Management）组件代码。
+本目录承载 YEDS 平台的 IAM（Identity and Access Management）实现。
 
-## 当前状态
+## 当前结构
 
-- 当前为占位目录，尚未导入历史仓库代码。
-- 后续将按平台统一规范接入，并补充迁移说明与运行文档。
+- `docs/`：设计、实施与检查清单文档。
+- `backend/`：IAM MVP 后端服务（Spring Boot + H2）。
+
+## 快速启动
+
+```bash
+cd iam/backend
+mvn spring-boot:run
+```
+
+默认端口 `8091`，示例账号：
+
+- username: `admin`
+- password: `admin123`
+
+## 已实现接口（MVP）
+
+```text
+POST /api/iam/auth/login
+POST /api/iam/auth/refresh
+POST /api/iam/auth/logout
+GET  /api/iam/auth/jwks
+
+POST /api/iam/authorize/check
+POST /api/iam/authorize/batch-check
+GET  /api/iam/authorize/user-permissions
+
+POST /api/iam/users
+POST /api/iam/roles
+POST /api/iam/roles/{roleId}/permissions
+POST /api/iam/policies
+POST /api/iam/clients
+POST /api/iam/clients/{clientId}/rotate-secret
+```

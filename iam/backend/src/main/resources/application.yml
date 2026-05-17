@@ -1,0 +1,26 @@
+server:
+  port: 8091
+
+spring:
+  application:
+    name: iam-backend
+  datasource:
+    url: jdbc:h2:mem:iamdb;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+      data-locations: classpath:data.sql
+
+iam:
+  jwt:
+    issuer: yeds-iam
+    audience: yeds-platform
+    access-token-ttl-seconds: 1800
+    refresh-token-ttl-seconds: 259200
+  security:
+    mfa-otp-ttl-seconds: 300
+    oidc-auth-code-ttl-seconds: 180
+    client-secret-grace-seconds: 1800
