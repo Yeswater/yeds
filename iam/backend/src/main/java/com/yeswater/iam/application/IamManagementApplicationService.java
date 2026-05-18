@@ -5,6 +5,7 @@ import com.yeswater.iam.domain.exception.BusinessException;
 import com.yeswater.iam.domain.model.ClientCredentialInfo;
 import com.yeswater.iam.domain.model.PermissionChangeRequestInfo;
 import com.yeswater.iam.domain.model.AbacPolicyInfo;
+import com.yeswater.iam.domain.support.AppCodeResolver;
 import com.yeswater.iam.domain.model.RiskEventInfo;
 import com.yeswater.iam.domain.model.TenantFederationInfo;
 import com.yeswater.iam.domain.model.TenantInfo;
@@ -122,16 +123,19 @@ public class IamManagementApplicationService {
             String resourceCode,
             String actionCode,
             String expression,
+            String appCode,
             String createdBy,
             String owner,
             String modifiedBy,
             String clientIp
     ) {
+        String resolvedAppCode = AppCodeResolver.resolve(appCode, resourceCode);
         Long policyId = iamJdbcRepository.saveAbacPolicy(
                 policyName,
                 resourceCode,
                 actionCode,
                 expression,
+                resolvedAppCode,
                 safeOperator(createdBy),
                 safeOperator(owner),
                 safeOperator(modifiedBy)
@@ -150,11 +154,71 @@ public class IamManagementApplicationService {
     }
 
     /**
+     * 更新 ABAC 策略。
+     */
+    public boolean updateAbacPolicy(
+            Long id,
+            String policyName,
+            String resourceCode,
+            String actionCode,
+            String expression,
+            String appCode,
+            String owner,
+            String modifiedBy,
+            String clientIp
+    ) {
+        String resolvedAppCode = AppCodeResolver.resolve(appCode, resourceCode);
+        int updated = iamJdbcRepository.updateAbacPolicy(
+                id,
+                policyName,
+                resourceCode,
+                actionCode,
+                expression,
+                resolvedAppCode,
+                safeOperator(owner),
+                safeOperator(modifiedBy)
+        );
+        if (updated > 0) {
+            iamJdbcRepository.saveAuditLog(
+                    "ABAC_POLICY_UPDATE",
+                    null,
+                    null,
+                    resourceCode,
+                    actionCode,
+                    "ALLOW",
+                    "更新ABAC策略:" + policyName + ",id=" + id,
+                    clientIp
+            );
+        }
+        return updated > 0;
+    }
+
+    /**
      * 查询 ABAC 策略列表。
      */
     public List<AbacPolicyInfo> listAbacPolicies(String policyName, String resourceCode, String actionCode, int limit) {
         int safeLimit = limit <= 0 ? 50 : Math.min(limit, 200);
         return iamJdbcRepository.listAbacPolicies(policyName, resourceCode, actionCode, safeLimit);
+    }
+
+    /**
+     * 删除 ABAC 策略。
+     */
+    public boolean deleteAbacPolicy(Long id, String modifiedBy, String clientIp) {
+        int updated = iamJdbcRepository.deleteAbacPolicy(id, safeOperator(modifiedBy));
+        if (updated > 0) {
+            iamJdbcRepository.saveAuditLog(
+                    "ABAC_POLICY_DELETE",
+                    null,
+                    null,
+                    "iam:abac-policy",
+                    "delete",
+                    "ALLOW",
+                    "删除ABAC策略,id=" + id,
+                    clientIp
+            );
+        }
+        return updated > 0;
     }
 
     /**
@@ -260,8 +324,23 @@ public class IamManagementApplicationService {
     /**
      * 配置租户联邦映射。
      */
-    public void upsertTenantFederation(String tenantCode, String issuer, String externalTenant, boolean enabled, String clientIp) {
-        iamJdbcRepository.upsertTenantFederation(tenantCode, issuer, externalTenant, enabled);
+    public void upsertTenantFederation(
+            String tenantCode,
+            String issuer,
+            String externalTenant,
+            boolean enabled,
+            String appCode,
+            String modifiedBy,
+            String clientIp
+    ) {
+        iamJdbcRepository.upsertTenantFederation(
+                tenantCode,
+                issuer,
+                externalTenant,
+                enabled,
+                AppCodeResolver.resolve(appCode, null),
+                safeOperator(modifiedBy)
+        );
         iamJdbcRepository.saveAuditLog(
                 "TENANT_FEDERATION_UPSERT",
                 null,
@@ -279,6 +358,26 @@ public class IamManagementApplicationService {
      */
     public List<TenantFederationInfo> listTenantFederations() {
         return iamJdbcRepository.listTenantFederations();
+    }
+
+    /**
+     * 删除租户联邦映射。
+     */
+    public boolean deleteTenantFederation(Long id, String modifiedBy, String clientIp) {
+        int updated = iamJdbcRepository.deleteTenantFederation(id, safeOperator(modifiedBy));
+        if (updated > 0) {
+            iamJdbcRepository.saveAuditLog(
+                    "TENANT_FEDERATION_DELETE",
+                    null,
+                    null,
+                    "iam:tenant-federation",
+                    "delete",
+                    "ALLOW",
+                    "删除租户联邦映射,id=" + id,
+                    clientIp
+            );
+        }
+        return updated > 0;
     }
 
     /**

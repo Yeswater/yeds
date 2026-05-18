@@ -57,9 +57,9 @@ select 'mock-oidc', 'external-admin', u.id, current_timestamp, current_timestamp
 from iam_user u
 where u.username = 'admin';
 
-insert into iam_tenant_federation (tenant_code, issuer, external_tenant, status, gmt_create, gmt_modified)
-values ('tenant-a', 'mock-oidc', 'external-tenant-a', 1, current_timestamp, current_timestamp),
-       ('tenant-b', 'mock-oidc', 'external-tenant-b', 1, current_timestamp, current_timestamp);
+insert into iam_tenant_federation (tenant_code, issuer, external_tenant, app_code, status, modified_by, gmt_create, gmt_modified)
+values ('tenant-a', 'mock-oidc', 'external-tenant-a', 'IAM', 1, 'admin', current_timestamp, current_timestamp),
+       ('tenant-b', 'mock-oidc', 'external-tenant-b', 'IAM', 1, 'admin', current_timestamp, current_timestamp);
 
 insert into iam_tenant (tenant_code, tenant_name, status, gmt_create, gmt_modified)
 values ('tenant-a', 'A租户', 1, current_timestamp, current_timestamp),
@@ -67,6 +67,6 @@ values ('tenant-a', 'A租户', 1, current_timestamp, current_timestamp),
        ('tenant-c', 'C租户', 1, current_timestamp, current_timestamp);
 
 insert into iam_abac_policy
-(policy_name, resource_code, action_code, expression, status, created_by, owner, modified_by, gmt_create, gmt_modified)
-values ('财务部门可执行模型', 'bids:model', 'execute', 'department=platform;envTag=prod', 1, 'admin', 'admin', 'admin', current_timestamp, current_timestamp),
-       ('租户隔离读取策略', 'bids:model', 'read', 'tenantCode=tenant-a', 1, 'admin', 'admin', 'admin', current_timestamp, current_timestamp);
+(policy_name, resource_code, action_code, expression, app_code, status, created_by, owner, modified_by, gmt_create, gmt_modified)
+values ('财务部门可执行模型', 'bids:model', 'execute', 'department=platform;envTag=prod', 'BIDS', 1, 'admin', 'admin', 'admin', current_timestamp, current_timestamp),
+       ('租户隔离读取策略', 'bids:model', 'read', 'tenantCode=tenant-a', 'BIDS', 1, 'admin', 'admin', 'admin', current_timestamp, current_timestamp);

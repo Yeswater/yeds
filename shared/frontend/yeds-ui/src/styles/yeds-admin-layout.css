@@ -1,0 +1,268 @@
+@import './yeds-admin-tokens.css';
+
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: var(--yeds-font-family);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* ---------- 顶栏 + 侧栏 + 主区域 ---------- */
+.yeds-admin-root {
+  height: 100vh;
+  flex-direction: column;
+  background: var(--yeds-page-bg);
+}
+
+.yeds-admin-header {
+  display: flex;
+  align-items: center;
+  height: var(--yeds-header-height) !important;
+  padding: 0 var(--yeds-page-padding-x);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  background: var(--yeds-surface);
+  box-shadow: var(--yeds-shadow-header);
+  z-index: 10;
+}
+
+.yeds-admin-brand {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--el-color-primary);
+  user-select: none;
+}
+
+.yeds-admin-brand-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 4px 8px;
+  margin-left: -8px;
+  border-radius: var(--yeds-radius-control);
+  transition: background 0.2s ease;
+}
+
+.yeds-admin-brand-trigger:hover {
+  background: var(--el-fill-color-light);
+}
+
+.yeds-admin-header-fill {
+  flex: 1;
+}
+
+.yeds-admin-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.yeds-admin-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.yeds-admin-user-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: var(--yeds-radius-control);
+  transition: background 0.2s ease;
+}
+
+.yeds-admin-user-trigger:hover {
+  background: var(--el-fill-color-light);
+}
+
+.yeds-admin-user-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  color: var(--el-text-color-primary);
+}
+
+.yeds-admin-body {
+  flex: 1;
+  min-height: 0;
+}
+
+.yeds-admin-aside {
+  display: flex;
+  flex-direction: column;
+  width: var(--yeds-aside-width) !important;
+  border-right: 1px solid var(--el-border-color-lighter);
+  background: var(--yeds-surface);
+}
+
+.yeds-admin-side-menu {
+  flex: 1;
+  border-right: none !important;
+  padding: 8px 0;
+  background: transparent;
+}
+
+.yeds-admin-side-menu .el-menu-item {
+  height: 44px;
+  line-height: 44px;
+  margin: 2px 8px;
+  border-radius: var(--yeds-radius-control);
+  font-size: 14px;
+}
+
+.yeds-admin-side-menu .el-menu-item.is-active {
+  background: var(--yeds-menu-active-bg) !important;
+  color: var(--el-color-primary);
+  font-weight: 600;
+  position: relative;
+}
+
+.yeds-admin-side-menu .el-menu-item.is-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--el-color-primary);
+}
+
+.yeds-admin-side-menu .el-menu-item:hover:not(.is-active) {
+  background: var(--el-fill-color-light);
+}
+
+.yeds-admin-main {
+  padding: 0 !important;
+  background: var(--yeds-page-bg);
+  overflow: auto;
+}
+
+/* ---------- 页面内容区 ---------- */
+.yeds-page-shell {
+  min-height: 100%;
+  padding: var(--yeds-page-padding-y) var(--yeds-page-padding-x);
+}
+
+.yeds-page-stack {
+  width: 100%;
+  max-width: var(--yeds-content-max-width);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--yeds-stack-gap);
+}
+
+/* 兼容 IAM 既有 class 名 */
+.page-stack {
+  width: 100%;
+  max-width: var(--yeds-content-max-width);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--yeds-stack-gap);
+}
+
+/* BIDS 单页容器 */
+.yeds-page {
+  width: 100%;
+  max-width: var(--yeds-content-max-width);
+  margin: 0 auto;
+}
+
+.page {
+  width: 100%;
+  max-width: var(--yeds-content-max-width);
+  margin: 0 auto;
+}
+
+/* ---------- 卡片 / 面板 ---------- */
+.panel,
+.yeds-panel {
+  width: 100%;
+  border: none !important;
+  border-radius: var(--yeds-radius-card) !important;
+  box-shadow: var(--yeds-shadow-card) !important;
+  background: var(--yeds-surface) !important;
+}
+
+.panel .el-card__header,
+.yeds-panel .el-card__header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.panel .el-card__body,
+.yeds-panel .el-card__body {
+  padding: 20px;
+}
+
+.panel-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  line-height: 1.4;
+}
+
+/* 表格密度：大厂控制台偏小一号 */
+.yeds-admin-main .el-table {
+  font-size: 13px;
+}
+
+.yeds-admin-main .el-table th.el-table__cell {
+  background: var(--yeds-surface-muted) !important;
+  color: var(--el-text-color-regular);
+  font-weight: 600;
+}
+
+/* BIDS 等内容页工具条 */
+.yeds-content-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.yeds-content-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.yeds-content-block {
+  min-height: 200px;
+}
+
+.yeds-block-toolbar {
+  margin-bottom: 12px;
+}
+
+@media (max-width: 768px) {
+  .yeds-admin-aside {
+    display: none;
+  }
+
+  .yeds-page-shell {
+    padding: 12px 16px;
+  }
+}

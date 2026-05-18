@@ -39,7 +39,7 @@ export function recordApiResult(action, result) {
     requestId: result.requestId || '-',
     path: result.path,
     method: result.method,
-    at: new Date().toLocaleTimeString('zh-CN', { hour12: false })
+    at: new Date().toISOString()
   }
   state.history = [item, ...state.history].slice(0, MAX_HISTORY_SIZE)
   persistHistory()

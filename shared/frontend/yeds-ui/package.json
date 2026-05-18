@@ -1,0 +1,13 @@
+{
+  "name": "@yeswater/yeds-ui",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./utils/dateFormat.js": "./src/utils/dateFormat.js",
+    "./styles/yeds-list-page.css": "./src/styles/yeds-list-page.css",
+    "./styles/yeds-admin-layout.css": "./src/styles/yeds-admin-layout.css",
+    "./styles/yeds-login-page.css": "./src/styles/yeds-login-page.css"
+  }
+}

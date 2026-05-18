@@ -1,5 +1,5 @@
 <template>
-  <el-card class="panel">
+  <el-card class="panel yeds-panel">
     <template #header>
       <div class="panel-title">
         <span>接口响应</span>

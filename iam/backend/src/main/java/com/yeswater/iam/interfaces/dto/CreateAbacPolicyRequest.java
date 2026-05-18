@@ -9,6 +9,7 @@ public record CreateAbacPolicyRequest(
         @NotBlank(message = "expression不能为空") String expression,
         String createdBy,
         String owner,
-        String modifiedBy
+        String modifiedBy,
+        String appCode
 ) {
 }

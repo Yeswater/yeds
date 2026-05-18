@@ -1,6 +1,6 @@
 <template>
   <div class="page-stack">
-    <el-card class="panel">
+    <el-card class="panel yeds-panel">
       <template #header>
         <div class="panel-title">
           <span>BIDS 平台入口</span>
@@ -51,7 +51,7 @@
       <el-empty v-if="filteredModules.length === 0" description="没有匹配的 BIDS 模块" />
     </el-card>
 
-    <el-card class="panel">
+    <el-card class="panel yeds-panel">
       <template #header>
         <div class="panel-title">
           <span>最近访问</span>
@@ -59,13 +59,24 @@
         </div>
       </template>
 
-      <el-table v-if="historyRows.length" :data="historyRows" border stripe size="small">
-        <el-table-column prop="moduleName" label="模块" min-width="160" />
-        <el-table-column prop="envLabel" label="环境" width="120" />
-        <el-table-column prop="url" label="入口地址" min-width="300" show-overflow-tooltip />
-        <el-table-column prop="visitedAt" label="访问时间" min-width="170" />
-      </el-table>
-      <el-empty v-else description="暂无访问记录" />
+      <YedsListTableWrap>
+        <el-table :data="pagedHistoryRows" border stripe size="small">
+          <YedsTableOperationColumn :show-edit="false" :show-delete="false" @copy="onCopyHistory" />
+          <el-table-column prop="moduleName" label="模块" min-width="160" />
+          <el-table-column prop="envLabel" label="环境" width="120" />
+          <el-table-column prop="url" label="入口地址" min-width="300" show-overflow-tooltip />
+          <YedsTableAuditColumns />
+          <template #empty>
+            <el-empty description="暂无访问记录" />
+          </template>
+        </el-table>
+      </YedsListTableWrap>
+      <YedsListPagination
+        :total="historyTotal"
+        :page-size="historyPageSize"
+        :current-page="historyCurrentPage"
+        @update:current-page="onHistoryPageChange"
+      />
     </el-card>
   </div>
 </template>
@@ -73,6 +84,15 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import {
+  YedsListTableWrap,
+  YedsListPagination,
+  YedsTableOperationColumn,
+  YedsTableAuditColumns,
+  useClientPager,
+  mapAuditRows,
+  copyText
+} from '@yeds/ui'
 import { buildBidsSsoCallbackUrl, buildBidsLoginEntryUrl } from '../../platformSwitch'
 
 const HISTORY_KEY = 'bids_entry_history_v1'
@@ -134,6 +154,14 @@ const moduleCatalog = [
 
 const historyRows = ref(loadHistory())
 
+const {
+  currentPage: historyCurrentPage,
+  pageSize: historyPageSize,
+  total: historyTotal,
+  pagedRows: pagedHistoryRows,
+  onPageChange: onHistoryPageChange
+} = useClientPager(historyRows, 20)
+
 const filteredModules = computed(() => {
   const text = keyword.value.trim().toLowerCase()
   if (!text) {
@@ -157,6 +185,18 @@ function getEnvLabel(envKey) {
   return target ? target.label : envKey
 }
 
+function normalizeHistoryRows(rows) {
+  return mapAuditRows(
+    rows.map((row) => ({
+      ...row,
+      appCode: 'BIDS',
+      lastOperator: '-',
+      lastOperateTime: row.visitedAt || ''
+    })),
+    'BIDS'
+  )
+}
+
 function loadHistory() {
   try {
     const raw = localStorage.getItem(HISTORY_KEY)
@@ -164,7 +204,7 @@ function loadHistory() {
       return []
     }
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
+    return normalizeHistoryRows(Array.isArray(parsed) ? parsed : [])
   } catch {
     return []
   }
@@ -180,9 +220,9 @@ function recordVisit(module, url) {
     moduleName: module.name,
     envLabel: getEnvLabel(activeEnv.value),
     url,
-    visitedAt: new Date().toLocaleString('zh-CN', { hour12: false })
+    visitedAt: new Date().toISOString()
   }
-  historyRows.value = [record, ...historyRows.value].slice(0, 20)
+  historyRows.value = normalizeHistoryRows([record, ...historyRows.value]).slice(0, 20)
   saveHistory(historyRows.value)
 }
 
@@ -195,6 +235,13 @@ function openModule(module) {
     return
   }
   window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+async function onCopyHistory(row) {
+  const ok = await copyText(row.url || '')
+  if (ok) {
+    ElMessage.success('入口地址已复制')
+  }
 }
 
 async function copyModuleUrl(module) {

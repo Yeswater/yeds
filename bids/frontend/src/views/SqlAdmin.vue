@@ -7,7 +7,13 @@
     <el-tabs v-model="activeTab">
       <el-tab-pane label="数据源" name="ds">
         <el-button type="primary" class="mb" @click="openDsDialog()">新建数据源</el-button>
-        <el-table :data="datasources" border stripe>
+        <el-table :data="auditDatasources" border stripe>
+          <YedsTableOperationColumn
+            :delete-message="(row) => `确认删除数据源「${row.code}」吗？`"
+            @copy="onCopyDs"
+            @edit="(row) => openDsDialog(row)"
+            @delete="onDeleteDs"
+          />
           <el-table-column prop="code" label="编码" width="120" />
           <el-table-column prop="name" label="名称" min-width="140" />
           <el-table-column prop="jdbcUrl" label="JDBC URL" min-width="260" show-overflow-tooltip />
@@ -16,27 +22,31 @@
           <el-table-column prop="driverClassName" label="驱动" min-width="180" show-overflow-tooltip />
           <el-table-column prop="maxPoolSize" label="池大小" width="90" />
           <el-table-column prop="active" label="启用" width="80" />
+          <YedsTableAuditColumns />
         </el-table>
       </el-tab-pane>
 
       <el-tab-pane label="SQL 服务（模型）" name="models">
         <el-button type="primary" class="mb" @click="openModelDrawer()">新建 SQL 服务</el-button>
-        <el-table :data="models" border stripe>
+        <el-table :data="auditModels" border stripe>
+          <YedsTableOperationColumn
+            :delete-message="(row) => `确认删除 SQL 服务「${row.code}」吗？`"
+            @copy="onCopyModel"
+            @edit="(row) => openModelDrawer(row.id)"
+            @delete="onDeleteModel"
+          />
           <el-table-column prop="code" label="服务编码" width="140" />
           <el-table-column prop="name" label="显示名称" min-width="140" />
           <el-table-column prop="datasourceCode" label="数据源" width="120" />
           <el-table-column prop="status" label="状态" width="100" />
-          <el-table-column prop="updatedAt" label="更新时间" min-width="180">
-            <template #default="{ row }">{{ formatDateTime(row.updatedAt) }}</template>
-          </el-table-column>
-          <el-table-column label="操作" width="280" fixed="right">
+          <el-table-column label="发布操作" width="220">
             <template #default="{ row }">
-              <el-button link type="primary" @click="openModelDrawer(row.id)">编辑</el-button>
               <el-button link type="primary" @click="handleValidate(row.id)">校验</el-button>
               <el-button link type="success" @click="handlePublish(row.id)">发布</el-button>
               <el-button link type="warning" @click="handleOffline(row.id)">下线</el-button>
             </template>
           </el-table-column>
+          <YedsTableAuditColumns />
         </el-table>
       </el-tab-pane>
     </el-tabs>
@@ -172,7 +182,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from 'vue'
+import { computed, reactive, ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   listDataSources,
@@ -187,10 +197,17 @@ import {
 } from '../api'
 import { sessionAuthOpts } from '../sessionAuth.js'
 import { formatDateTime } from '../dateFormat.js'
+import {
+  YedsTableOperationColumn,
+  YedsTableAuditColumns,
+  mapAuditRows
+} from '@yeds/ui'
 
 const activeTab = ref('ds')
 const datasources = ref([])
 const models = ref([])
+const auditDatasources = computed(() => mapAuditRows(datasources.value, 'BIDS'))
+const auditModels = computed(() => mapAuditRows(models.value, 'BIDS'))
 const dsDialog = ref(false)
 const dsSaving = ref(false)
 const dialects = ['MYSQL', 'POSTGRESQL', 'OPENGAUSS']
@@ -249,9 +266,52 @@ function resetDsForm() {
   })
 }
 
-function openDsDialog() {
+function openDsDialog(row) {
   resetDsForm()
+  if (row) {
+    Object.assign(dsForm, {
+      code: row.code || '',
+      name: row.name || '',
+      jdbcUrl: row.jdbcUrl || dsForm.jdbcUrl,
+      username: row.username || '',
+      password: '',
+      driverClassName: row.driverClassName || dsForm.driverClassName,
+      sqlDialect: row.sqlDialect || dsForm.sqlDialect,
+      maxPoolSize: row.maxPoolSize ?? dsForm.maxPoolSize,
+      active: row.active !== false
+    })
+  }
   dsDialog.value = true
+}
+
+function onCopyDs(row) {
+  openDsDialog()
+  Object.assign(dsForm, {
+    code: `${row.code}_copy`,
+    name: `${row.name || row.code}（副本）`,
+    jdbcUrl: row.jdbcUrl,
+    username: row.username,
+    password: '',
+    driverClassName: row.driverClassName,
+    sqlDialect: row.sqlDialect,
+    maxPoolSize: row.maxPoolSize,
+    active: row.active !== false
+  })
+}
+
+async function onDeleteDs() {
+  ElMessage.warning('当前版本暂不支持删除数据源，请在后端接口就绪后接入')
+}
+
+function onCopyModel(row) {
+  openModelDrawer()
+  modelForm.code = `${row.code}_copy`
+  modelForm.name = `${row.name || row.code}（副本）`
+  modelForm.datasourceCode = row.datasourceCode || ''
+}
+
+async function onDeleteModel() {
+  ElMessage.warning('当前版本暂不支持删除 SQL 服务，请在后端接口就绪后接入')
 }
 
 async function saveDatasource() {

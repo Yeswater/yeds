@@ -1,6 +1,6 @@
 <template>
   <div class="page-stack">
-    <el-card class="panel">
+    <el-card class="panel yeds-panel">
       <template #header>
         <div class="panel-title">
           <span>ABAC 鉴权校验</span>

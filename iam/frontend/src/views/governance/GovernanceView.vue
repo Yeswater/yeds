@@ -1,5 +1,5 @@
 <template>
-  <el-card class="panel">
+  <el-card class="panel yeds-panel">
       <template #header>
         <div class="panel-title">
           <span>风险与巡检</span>
@@ -36,28 +36,62 @@
         <el-tag>其他 {{ riskSummary.other }}</el-tag>
       </div>
 
-      <el-table v-if="riskEvents.length" :data="riskEvents" border stripe size="small">
-        <el-table-column prop="eventType" label="事件类型" min-width="140" />
-        <el-table-column prop="severity" label="风险等级" width="100" />
-        <el-table-column prop="tenantCode" label="租户" width="120" />
-        <el-table-column prop="detail" label="详情" min-width="220" show-overflow-tooltip />
-      </el-table>
-      <el-empty v-else description="风险事件为空" />
+      <YedsListTableWrap>
+        <el-table :data="pagedRiskEvents" border stripe size="small">
+          <YedsTableOperationColumn :show-edit="false" :show-delete="false" @copy="onCopyRisk" />
+          <el-table-column prop="eventType" label="事件类型" min-width="140" />
+          <el-table-column prop="severity" label="风险等级" width="100" />
+          <el-table-column prop="tenantCode" label="租户" width="120" />
+          <el-table-column prop="detail" label="详情" min-width="220" show-overflow-tooltip />
+          <YedsTableAuditColumns />
+          <template #empty>
+            <el-empty description="风险事件为空" />
+          </template>
+        </el-table>
+      </YedsListTableWrap>
+      <YedsListPagination
+        :total="riskTotal"
+        :page-size="riskPageSize"
+        :current-page="riskCurrentPage"
+        @update:current-page="onRiskPageChange"
+      />
 
       <el-divider />
 
-      <el-table v-if="inspectionRows.length" :data="inspectionRows" border stripe size="small">
-        <el-table-column prop="type" label="巡检类型" min-width="140" />
-        <el-table-column prop="name" label="对象" min-width="160" show-overflow-tooltip />
-        <el-table-column prop="tenantCode" label="租户" width="120" />
-        <el-table-column prop="detail" label="详情" min-width="220" show-overflow-tooltip />
-      </el-table>
-      <el-empty v-else description="巡检结果为空" />
+      <YedsListTableWrap>
+        <el-table :data="pagedInspectionRows" border stripe size="small">
+          <YedsTableOperationColumn :show-edit="false" :show-delete="false" @copy="onCopyInspection" />
+          <el-table-column prop="type" label="巡检类型" min-width="140" />
+          <el-table-column prop="name" label="对象" min-width="160" show-overflow-tooltip />
+          <el-table-column prop="tenantCode" label="租户" width="120" />
+          <el-table-column prop="detail" label="详情" min-width="220" show-overflow-tooltip />
+          <YedsTableAuditColumns />
+          <template #empty>
+            <el-empty description="巡检结果为空" />
+          </template>
+        </el-table>
+      </YedsListTableWrap>
+      <YedsListPagination
+        :total="inspectionTotal"
+        :page-size="inspectionPageSize"
+        :current-page="inspectionCurrentPage"
+        @update:current-page="onInspectionPageChange"
+      />
     </el-card>
 </template>
 
 <script setup>
 import { computed, reactive, ref } from 'vue'
+import { ElMessage } from 'element-plus'
+import {
+  YedsListTableWrap,
+  YedsListPagination,
+  YedsTableOperationColumn,
+  YedsTableAuditColumns,
+  useClientPager,
+  mapAuditRows,
+  copyText
+} from '@yeds/ui'
 import {
   fetchRiskEvents,
   inspectOverPrivileged,
@@ -68,6 +102,22 @@ import {
 const formRef = ref(null)
 const riskEvents = ref([])
 const inspectionRows = ref([])
+
+const {
+  currentPage: riskCurrentPage,
+  pageSize: riskPageSize,
+  total: riskTotal,
+  pagedRows: pagedRiskEvents,
+  onPageChange: onRiskPageChange
+} = useClientPager(riskEvents, 20)
+
+const {
+  currentPage: inspectionCurrentPage,
+  pageSize: inspectionPageSize,
+  total: inspectionTotal,
+  pagedRows: pagedInspectionRows,
+  onPageChange: onInspectionPageChange
+} = useClientPager(inspectionRows, 20)
 const loading = reactive({
   risk: false,
   overPrivileged: false,
@@ -140,7 +190,15 @@ async function queryRiskEvents() {
   }
   loading.risk = true
   const response = await fetchRiskEvents(params.riskLimit)
-  riskEvents.value = Array.isArray(response.payload) ? response.payload : []
+  const rows = Array.isArray(response.payload) ? response.payload : []
+  riskEvents.value = mapAuditRows(
+    rows.map((item) => ({
+      ...item,
+      lastOperator: '-',
+      lastOperateTime: item.createdAt || item.created_at || ''
+    })),
+    'IAM'
+  )
   loading.risk = false
 }
 
@@ -151,7 +209,7 @@ async function queryOverPrivileged() {
   }
   loading.overPrivileged = true
   const response = await inspectOverPrivileged(params.permissionThreshold)
-  inspectionRows.value = mapInspectionRows(response.payload, '过权账户')
+  inspectionRows.value = mapAuditRows(mapInspectionRows(response.payload, '过权账户'), 'IAM')
   loading.overPrivileged = false
 }
 
@@ -162,8 +220,22 @@ async function queryZombie() {
   }
   loading.zombie = true
   const response = await inspectZombieAccounts(params.inactiveDays)
-  inspectionRows.value = mapInspectionRows(response.payload, '僵尸账号')
+  inspectionRows.value = mapAuditRows(mapInspectionRows(response.payload, '僵尸账号'), 'IAM')
   loading.zombie = false
+}
+
+async function onCopyRisk(row) {
+  const ok = await copyText(JSON.stringify(row, null, 2))
+  if (ok) {
+    ElMessage.success('已复制风险事件')
+  }
+}
+
+async function onCopyInspection(row) {
+  const ok = await copyText(row.detail || JSON.stringify(row))
+  if (ok) {
+    ElMessage.success('已复制巡检详情')
+  }
 }
 
 async function queryStaleClients() {
@@ -173,7 +245,7 @@ async function queryStaleClients() {
   }
   loading.staleClients = true
   const response = await inspectStaleClients(params.staleDays)
-  inspectionRows.value = mapInspectionRows(response.payload, '长期未使用凭证')
+  inspectionRows.value = mapAuditRows(mapInspectionRows(response.payload, '长期未使用凭证'), 'IAM')
   loading.staleClients = false
 }
 </script>

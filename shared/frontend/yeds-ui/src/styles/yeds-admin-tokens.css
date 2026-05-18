@@ -1,0 +1,33 @@
+/**
+ * YEDS 管理后台设计令牌（IAM / BIDS / EDM 共用）
+ * 风格：Element Plus 主色 + 国内大厂控制台布局节奏
+ */
+:root {
+  --yeds-font-family: "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  --yeds-header-height: 56px;
+  --yeds-aside-width: 208px;
+  --yeds-page-bg: #f0f2f5;
+  --yeds-surface: #ffffff;
+  --yeds-surface-muted: #fafbfc;
+  --yeds-border-subtle: rgba(0, 0, 0, 0.06);
+  --yeds-shadow-header: 0 1px 4px rgba(0, 21, 41, 0.08);
+  --yeds-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.03), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --yeds-radius-card: 8px;
+  --yeds-radius-control: 6px;
+  --yeds-page-padding-x: 24px;
+  --yeds-page-padding-y: 20px;
+  --yeds-content-max-width: 1440px;
+  --yeds-stack-gap: 16px;
+  --yeds-menu-active-bg: rgba(64, 158, 255, 0.08);
+}
+
+html.dark {
+  --yeds-page-bg: #0a0a0a;
+  --yeds-surface: var(--el-bg-color);
+  --yeds-surface-muted: var(--el-bg-color-overlay);
+  --yeds-border-subtle: var(--el-border-color-lighter);
+  --yeds-shadow-header: 0 1px 4px rgba(0, 0, 0, 0.45);
+  --yeds-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --yeds-menu-active-bg: rgba(64, 158, 255, 0.15);
+}

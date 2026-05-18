@@ -1,0 +1,65 @@
+.yeds-login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--yeds-page-bg, #f0f2f5);
+}
+
+.yeds-login-card {
+  width: 400px;
+  max-width: 100%;
+  padding: 32px 32px 28px;
+  border-radius: var(--yeds-radius-card, 8px);
+  background: var(--yeds-surface, #fff);
+  box-shadow: var(--yeds-shadow-card, 0 1px 2px rgba(0, 0, 0, 0.03), 0 8px 24px rgba(0, 0, 0, 0.06));
+}
+
+.yeds-login-title {
+  margin: 0 0 24px;
+  font-size: 20px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--el-text-color-primary, #303133);
+  line-height: 1.4;
+}
+
+.yeds-login-subtitle {
+  margin: -16px 0 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--el-text-color-secondary, #909399);
+}
+
+.yeds-login-form .el-form-item__label {
+  padding-bottom: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--el-text-color-regular, #606266);
+  line-height: 1.4;
+}
+
+.yeds-login-form .el-form-item {
+  margin-bottom: 18px;
+}
+
+.yeds-login-form .el-input__wrapper {
+  border-radius: var(--yeds-radius-control, 6px);
+}
+
+.yeds-login-submit {
+  width: 100%;
+  margin-top: 8px;
+  height: 40px;
+  font-size: 14px;
+  border-radius: var(--yeds-radius-control, 6px);
+}
+
+.yeds-login-error {
+  margin-top: 12px;
+  min-height: 20px;
+  font-size: 13px;
+  text-align: center;
+  color: var(--el-color-danger, #f56c6c);
+}
