@@ -1,5 +1,5 @@
 <template>
-  <el-card class="panel">
+  <el-card class="panel yeds-panel">
     <template #header>
       <div class="panel-title">
         <span>最近操作时间线</span>
@@ -16,7 +16,7 @@
       <el-timeline-item
         v-for="item in pagedItems"
         :key="item.id"
-        :timestamp="`${item.at} · 状态 ${item.status} · ${item.elapsedMs}ms · ${item.requestId}`"
+        :timestamp="`${formatDateTime(item.at)} · 状态 ${item.status} · ${item.elapsedMs}ms · ${item.requestId}`"
         :type="item.ok ? 'success' : 'danger'"
       >
         {{ item.action }}（{{ item.method }} {{ item.path }}）
@@ -24,21 +24,19 @@
     </el-timeline>
     <el-empty v-else description="暂无操作记录" />
 
-    <div class="pager-wrap" v-if="uiStore.history.length">
-      <el-pagination
-        layout="prev, pager, next, total"
-        :total="uiStore.history.length"
-        :page-size="pageSize"
-        :current-page="currentPage"
-        @current-change="onPageChange"
-      />
-    </div>
+    <YedsListPagination
+      :total="uiStore.history.length"
+      :page-size="pageSize"
+      :current-page="currentPage"
+      @update:current-page="onPageChange"
+    />
   </el-card>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
 import { ElMessageBox } from 'element-plus'
+import { YedsListPagination, formatDateTime } from '@yeds/ui'
 import { clearHistory, exportDiagnosticsJson, useUiStore } from '../../stores/uiStore'
 
 const uiStore = useUiStore()

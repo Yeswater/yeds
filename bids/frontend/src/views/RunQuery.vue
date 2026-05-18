@@ -1,16 +1,22 @@
 <template>
-  <div class="page">
-    <el-card class="card page-card">
-      <div class="content-toolbar">
-        <span class="content-title">{{ sectionTitle }}</span>
+  <div class="page yeds-page">
+    <el-card class="panel yeds-panel page-card">
+      <div class="yeds-content-toolbar content-toolbar">
+        <span class="yeds-content-title content-title">{{ sectionTitle }}</span>
         <el-button type="primary" :loading="refreshing" @click="refreshAll">刷新</el-button>
       </div>
 
-      <div v-show="activeMenu === 'ds'" class="content-block">
-        <div class="block-toolbar">
+      <div v-show="activeMenu === 'ds'" class="yeds-content-block content-block">
+        <div class="yeds-block-toolbar block-toolbar">
           <el-button type="primary" @click="openDsDialog()">新建数据源</el-button>
         </div>
-        <el-table :data="datasources" border stripe>
+        <el-table :data="auditDatasources" border stripe>
+          <YedsTableOperationColumn
+            :delete-message="(row) => `确认删除数据源「${row.code}」吗？`"
+            @copy="onCopyDs"
+            @edit="(row) => openDsDialog(row)"
+            @delete="onDeleteDs"
+          />
           <el-table-column prop="code" label="编码" width="120" />
           <el-table-column prop="name" label="名称" min-width="140" />
           <el-table-column prop="jdbcUrl" label="JDBC URL" min-width="260" show-overflow-tooltip />
@@ -19,45 +25,52 @@
           <el-table-column prop="driverClassName" label="驱动" min-width="180" show-overflow-tooltip />
           <el-table-column prop="maxPoolSize" label="池大小" width="90" />
           <el-table-column prop="active" label="启用" width="80" />
+          <YedsTableAuditColumns />
         </el-table>
       </div>
 
-      <div v-show="activeMenu === 'svc'" class="content-block">
+      <div v-show="activeMenu === 'svc'" class="yeds-content-block content-block">
         <el-button type="primary" class="mb" @click="openModelDrawer()">新建 SQL 服务</el-button>
-        <el-table :data="models" border stripe>
+        <el-table :data="auditModels" border stripe>
+          <YedsTableOperationColumn
+            :delete-message="(row) => `确认删除 SQL 服务「${row.code}」吗？`"
+            @copy="onCopyModel"
+            @edit="(row) => openModelDrawer(row.id)"
+            @delete="onDeleteModel"
+          />
           <el-table-column prop="code" label="服务编码" width="140" />
           <el-table-column prop="name" label="显示名称" min-width="140" />
           <el-table-column prop="datasourceCode" label="数据源" width="120" />
           <el-table-column prop="status" label="状态" width="100" />
-          <el-table-column prop="updatedAt" label="更新时间" min-width="180">
-            <template #default="{ row }">{{ formatDateTime(row.updatedAt) }}</template>
-          </el-table-column>
-          <el-table-column label="操作" width="280" fixed="right">
+          <el-table-column label="发布操作" width="220">
             <template #default="{ row }">
-              <el-button link type="primary" @click="openModelDrawer(row.id)">编辑</el-button>
               <el-button link type="primary" @click="handleValidate(row.id)">校验</el-button>
               <el-button link type="success" @click="handlePublish(row.id)">发布</el-button>
               <el-button link type="warning" @click="handleOffline(row.id)">下线</el-button>
             </template>
           </el-table-column>
+          <YedsTableAuditColumns />
         </el-table>
       </div>
 
-      <div v-show="activeMenu === 'run'" class="content-block">
-        <el-table :data="publishedModels" border stripe class="mb-table">
+      <div v-show="activeMenu === 'run'" class="yeds-content-block content-block">
+        <el-table :data="auditPublishedModels" border stripe class="mb-table">
+          <YedsTableOperationColumn
+            :show-edit="false"
+            :show-delete="false"
+            @copy="onCopyPublishedModel"
+          />
           <el-table-column prop="code" label="服务编码" width="140" />
           <el-table-column prop="name" label="显示名称" min-width="140" />
           <el-table-column prop="datasourceCode" label="数据源" width="120" />
           <el-table-column prop="status" label="状态" width="100" />
-          <el-table-column prop="updatedAt" label="更新时间" min-width="180">
-            <template #default="{ row }">{{ formatDateTime(row.updatedAt) }}</template>
-          </el-table-column>
-          <el-table-column label="操作" width="120" fixed="right">
+          <el-table-column label="运行操作" width="120">
             <template #default="{ row }">
               <el-button link type="primary" @click="handleRunService(row)">运行</el-button>
               <el-button link type="primary" @click="openLogForModel(row)">日志</el-button>
             </template>
           </el-table-column>
+          <YedsTableAuditColumns />
         </el-table>
 
         <el-card v-if="formConfig" class="inner-card">
@@ -417,6 +430,12 @@ import {
 import { sessionAuthOpts } from '../sessionAuth.js'
 import { refreshSessionIfNeeded } from '../iamSession.js'
 import { formatDateTime, parseContentDispositionFileName } from '../dateFormat.js'
+import {
+  YedsTableOperationColumn,
+  YedsTableAuditColumns,
+  mapAuditRows,
+  copyText
+} from '@yeds/ui'
 
 /** 多选下拉中「全选」使用的哨兵值，不会作为真实参数提交 */
 const MULTI_SELECT_ALL = '__BIDS_SELECT_ALL__'
@@ -460,6 +479,10 @@ const executing = ref(false)
 const refreshing = ref(false)
 const datasources = ref([])
 const models = ref([])
+const auditDatasources = computed(() => mapAuditRows(datasources.value, 'BIDS'))
+const auditModels = computed(() => mapAuditRows(models.value, 'BIDS'))
+const publishedModels = computed(() => models.value.filter((item) => item.status === 'PUBLISHED'))
+const auditPublishedModels = computed(() => mapAuditRows(publishedModels.value, 'BIDS'))
 const lastExecuteIdByCode = reactive({})
 const fieldTypes = ['TEXT', 'NUMBER', 'DATE', 'DATETIME', 'BOOLEAN', 'SELECT']
 const modelDrawer = ref(false)
@@ -505,8 +528,6 @@ const runPageSize = ref(DEFAULT_PAGE_SIZE)
 const apiResultSnapshot = ref(null)
 /** 原始 JSON 是否展开（false 为预览折叠） */
 const rawJsonExpanded = ref(false)
-
-const publishedModels = computed(() => models.value.filter((m) => m.status === 'PUBLISHED'))
 
 const tablePagerTotal = computed(() => Number(result.value?.total ?? 0))
 
@@ -562,9 +583,59 @@ function resetDsForm() {
   })
 }
 
-function openDsDialog() {
+function openDsDialog(row) {
   resetDsForm()
+  if (row) {
+    Object.assign(dsForm, {
+      code: row.code || '',
+      name: row.name || '',
+      jdbcUrl: row.jdbcUrl || dsForm.jdbcUrl,
+      username: row.username || '',
+      password: '',
+      driverClassName: row.driverClassName || dsForm.driverClassName,
+      sqlDialect: row.sqlDialect || dsForm.sqlDialect,
+      maxPoolSize: row.maxPoolSize ?? dsForm.maxPoolSize,
+      active: row.active !== false
+    })
+  }
   dsDialog.value = true
+}
+
+function onCopyDs(row) {
+  openDsDialog()
+  Object.assign(dsForm, {
+    code: `${row.code}_copy`,
+    name: `${row.name || row.code}（副本）`,
+    jdbcUrl: row.jdbcUrl,
+    username: row.username,
+    password: '',
+    driverClassName: row.driverClassName,
+    sqlDialect: row.sqlDialect,
+    maxPoolSize: row.maxPoolSize,
+    active: row.active !== false
+  })
+}
+
+async function onDeleteDs() {
+  ElMessage.warning('当前版本暂不支持删除数据源，请在后端接口就绪后接入')
+}
+
+function onCopyModel(row) {
+  openModelDrawer()
+  modelForm.code = `${row.code}_copy`
+  modelForm.name = `${row.name || row.code}（副本）`
+  modelForm.datasourceCode = row.datasourceCode || ''
+}
+
+async function onDeleteModel() {
+  ElMessage.warning('当前版本暂不支持删除 SQL 服务，请在后端接口就绪后接入')
+}
+
+async function onCopyPublishedModel(row) {
+  const ok = await copyText(row.code || '')
+  if (ok) {
+    ElMessage.success('服务编码已复制')
+  }
 }
 
 async function saveDatasource() {
@@ -1122,26 +1193,7 @@ onUnmounted(stopExportPoll)
 
 <style scoped>
 .page-card :deep(.el-card__body) {
-  padding-top: 12px;
-}
-.content-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
-}
-.content-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-}
-.content-block {
-  min-height: 200px;
-}
-.block-toolbar {
-  margin-bottom: 12px;
+  padding-top: 4px;
 }
 .mb {
   margin-bottom: 12px;

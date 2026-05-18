@@ -151,7 +151,9 @@ create table iam_tenant_federation
     tenant_code      varchar(64)  not null,
     issuer           varchar(128) not null,
     external_tenant  varchar(128) not null,
+    app_code         varchar(32)  not null default 'IAM',
     status           tinyint      not null default 1,
+    modified_by      varchar(64)  not null default 'system',
     gmt_create       datetime     not null,
     gmt_modified     datetime     not null
 );
@@ -209,6 +211,7 @@ create table iam_abac_policy
     resource_code   varchar(128) not null,
     action_code     varchar(64)  not null,
     expression      varchar(512) not null,
+    app_code        varchar(32)  not null default 'IAM',
     status          tinyint      not null default 1,
     created_by      varchar(64)  not null,
     owner           varchar(64)  not null,

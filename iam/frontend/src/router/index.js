@@ -5,7 +5,7 @@ const routes = [
   {
     path: '/login',
     name: 'login',
-    component: () => import('../views/LoginView.vue')
+    component: () => import('../views/LoginRedirectView.vue')
   },
   {
     path: '/auth/sso-callback',

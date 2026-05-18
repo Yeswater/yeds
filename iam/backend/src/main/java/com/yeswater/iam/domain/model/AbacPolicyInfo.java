@@ -8,6 +8,7 @@ public record AbacPolicyInfo(
         String resourceCode,
         String actionCode,
         String expression,
+        String appCode,
         Integer status,
         String createdBy,
         String owner,

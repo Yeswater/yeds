@@ -53,6 +53,7 @@ public class IamJdbcRepository {
                     resultSet.getString("resource_code"),
                     resultSet.getString("action_code"),
                     resultSet.getString("expression"),
+                    resultSet.getString("app_code"),
                     resultSet.getInt("status"),
                     resultSet.getString("created_by"),
                     resultSet.getString("owner"),
@@ -166,7 +167,11 @@ public class IamJdbcRepository {
                     resultSet.getString("tenant_code"),
                     resultSet.getString("issuer"),
                     resultSet.getString("external_tenant"),
-                    resultSet.getInt("status")
+                    resultSet.getString("app_code"),
+                    resultSet.getInt("status"),
+                    resultSet.getString("modified_by"),
+                    resultSet.getTimestamp("gmt_create").toLocalDateTime(),
+                    resultSet.getTimestamp("gmt_modified").toLocalDateTime()
             );
         }
     };
@@ -519,7 +524,7 @@ public class IamJdbcRepository {
      */
     public Optional<TenantFederationInfo> findActiveTenantFederation(String tenantCode, String issuer, String externalTenant) {
         String sql = """
-                select id, tenant_code, issuer, external_tenant, status
+                select id, tenant_code, issuer, external_tenant, app_code, status, modified_by, gmt_create, gmt_modified
                 from iam_tenant_federation
                 where tenant_code = ?
                   and issuer = ?
@@ -535,9 +540,10 @@ public class IamJdbcRepository {
      */
     public List<TenantFederationInfo> listTenantFederations() {
         String sql = """
-                select id, tenant_code, issuer, external_tenant, status
+                select id, tenant_code, issuer, external_tenant, app_code, status, modified_by, gmt_create, gmt_modified
                 from iam_tenant_federation
-                order by id desc
+                where status = 1
+                order by gmt_modified desc
                 """;
         return jdbcTemplate.query(sql, TENANT_FEDERATION_ROW_MAPPER);
     }
@@ -545,25 +551,64 @@ public class IamJdbcRepository {
     /**
      * 新增或更新租户联邦映射。
      */
-    public void upsertTenantFederation(String tenantCode, String issuer, String externalTenant, boolean enabled) {
+    public void upsertTenantFederation(
+            String tenantCode,
+            String issuer,
+            String externalTenant,
+            boolean enabled,
+            String appCode,
+            String modifiedBy
+    ) {
         String updateSql = """
                 update iam_tenant_federation
                 set status = ?,
+                    app_code = ?,
+                    modified_by = ?,
                     gmt_modified = current_timestamp
                 where tenant_code = ?
                   and issuer = ?
                   and external_tenant = ?
                 """;
-        int affected = jdbcTemplate.update(updateSql, enabled ? 1 : 0, tenantCode, issuer, externalTenant);
+        int affected = jdbcTemplate.update(
+                updateSql,
+                enabled ? 1 : 0,
+                appCode,
+                modifiedBy,
+                tenantCode,
+                issuer,
+                externalTenant
+        );
         if (affected > 0) {
             return;
         }
         String insertSql = """
                 insert into iam_tenant_federation
-                (tenant_code, issuer, external_tenant, status, gmt_create, gmt_modified)
-                values (?, ?, ?, ?, current_timestamp, current_timestamp)
+                (tenant_code, issuer, external_tenant, app_code, status, modified_by, gmt_create, gmt_modified)
+                values (?, ?, ?, ?, ?, ?, current_timestamp, current_timestamp)
                 """;
-        jdbcTemplate.update(insertSql, tenantCode, issuer, externalTenant, enabled ? 1 : 0);
+        jdbcTemplate.update(
+                insertSql,
+                tenantCode,
+                issuer,
+                externalTenant,
+                appCode,
+                enabled ? 1 : 0,
+                modifiedBy
+        );
+    }
+
+    /**
+     * 软删除租户联邦映射。
+     */
+    public int deleteTenantFederation(Long id, String modifiedBy) {
+        String sql = """
+                update iam_tenant_federation
+                set status = 0,
+                    modified_by = ?,
+                    gmt_modified = current_timestamp
+                where id = ? and status = 1
+                """;
+        return jdbcTemplate.update(sql, modifiedBy, id);
     }
 
     /**
@@ -609,7 +654,7 @@ public class IamJdbcRepository {
      */
     public List<AbacPolicyInfo> listActiveAbacPolicies(String resourceCode, String actionCode) {
         String sql = """
-                select id, policy_name, resource_code, action_code, expression, status
+                select id, policy_name, resource_code, action_code, expression, app_code, status
                        , created_by, owner, modified_by, gmt_create, gmt_modified
                 from iam_abac_policy
                 where status = 1
@@ -625,14 +670,14 @@ public class IamJdbcRepository {
      */
     public List<AbacPolicyInfo> listAbacPolicies(String policyName, String resourceCode, String actionCode, int limit) {
         String sql = """
-                select id, policy_name, resource_code, action_code, expression, status
+                select id, policy_name, resource_code, action_code, expression, app_code, status
                        , created_by, owner, modified_by, gmt_create, gmt_modified
                 from iam_abac_policy
                 where status = 1
                   and (? is null or policy_name like ?)
                   and (? is null or resource_code like ?)
                   and (? is null or action_code like ?)
-                order by id desc
+                order by gmt_modified desc
                 limit ?
                 """;
         String safePolicyName = toLikeKeyword(policyName);
@@ -652,14 +697,68 @@ public class IamJdbcRepository {
     }
 
     /**
+     * 更新 ABAC 策略。
+     *
+     * @return 受影响行数
+     */
+    public int updateAbacPolicy(
+            Long id,
+            String policyName,
+            String resourceCode,
+            String actionCode,
+            String expression,
+            String appCode,
+            String owner,
+            String modifiedBy
+    ) {
+        String sql = """
+                update iam_abac_policy
+                set policy_name = ?,
+                    resource_code = ?,
+                    action_code = ?,
+                    expression = ?,
+                    app_code = ?,
+                    owner = ?,
+                    modified_by = ?,
+                    gmt_modified = current_timestamp
+                where id = ? and status = 1
+                """;
+        return jdbcTemplate.update(
+                sql,
+                policyName,
+                resourceCode,
+                actionCode,
+                expression,
+                appCode,
+                owner,
+                modifiedBy,
+                id
+        );
+    }
+
+    /**
+     * 软删除 ABAC 策略。
+     */
+    public int deleteAbacPolicy(Long id, String modifiedBy) {
+        String sql = """
+                update iam_abac_policy
+                set status = 0,
+                    modified_by = ?,
+                    gmt_modified = current_timestamp
+                where id = ? and status = 1
+                """;
+        return jdbcTemplate.update(sql, modifiedBy, id);
+    }
+
+    /**
      * 创建 ABAC 策略。
      */
     public Long saveAbacPolicy(String policyName, String resourceCode, String actionCode, String expression) {
         String insertSql = """
                 insert into iam_abac_policy
-                (policy_name, resource_code, action_code, expression, status
+                (policy_name, resource_code, action_code, expression, app_code, status
                  , created_by, owner, modified_by, gmt_create, gmt_modified)
-                values (?, ?, ?, ?, 1, ?, ?, ?, current_timestamp, current_timestamp)
+                values (?, ?, ?, ?, 'IAM', 1, ?, ?, ?, current_timestamp, current_timestamp)
                 """;
         jdbcTemplate.update(insertSql, policyName, resourceCode, actionCode, expression, "system", "system", "system");
         String querySql = "select id from iam_abac_policy where policy_name = ? order by id desc limit 1";
@@ -674,17 +773,28 @@ public class IamJdbcRepository {
             String resourceCode,
             String actionCode,
             String expression,
+            String appCode,
             String createdBy,
             String owner,
             String modifiedBy
     ) {
         String insertSql = """
                 insert into iam_abac_policy
-                (policy_name, resource_code, action_code, expression, status
+                (policy_name, resource_code, action_code, expression, app_code, status
                  , created_by, owner, modified_by, gmt_create, gmt_modified)
-                values (?, ?, ?, ?, 1, ?, ?, ?, current_timestamp, current_timestamp)
+                values (?, ?, ?, ?, ?, 1, ?, ?, ?, current_timestamp, current_timestamp)
                 """;
-        jdbcTemplate.update(insertSql, policyName, resourceCode, actionCode, expression, createdBy, owner, modifiedBy);
+        jdbcTemplate.update(
+                insertSql,
+                policyName,
+                resourceCode,
+                actionCode,
+                expression,
+                appCode,
+                createdBy,
+                owner,
+                modifiedBy
+        );
         String querySql = "select id from iam_abac_policy where policy_name = ? order by id desc limit 1";
         return jdbcTemplate.queryForObject(querySql, Long.class, policyName);
     }

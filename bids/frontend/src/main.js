@@ -7,6 +7,7 @@ import VXETable from 'vxe-table'
 import App from './App.vue'
 import { router } from './router'
 import { readThemePreference } from './authStorage.js'
+import '@yeds/ui/styles/yeds-admin-layout.css'
 import './style.css'
 
 if (readThemePreference() === 'dark') {

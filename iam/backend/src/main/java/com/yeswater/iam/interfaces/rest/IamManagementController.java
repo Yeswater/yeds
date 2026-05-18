@@ -5,6 +5,7 @@ import com.yeswater.iam.interfaces.dto.BindRolePermissionsRequest;
 import com.yeswater.iam.interfaces.dto.BindRolePoliciesRequest;
 import com.yeswater.iam.interfaces.dto.ClientAuthenticateRequest;
 import com.yeswater.iam.interfaces.dto.CreateAbacPolicyRequest;
+import com.yeswater.iam.interfaces.dto.UpdateAbacPolicyRequest;
 import com.yeswater.iam.interfaces.dto.CreateClientRequest;
 import com.yeswater.iam.interfaces.dto.CreatePermissionChangeRequest;
 import com.yeswater.iam.interfaces.dto.CreatePolicyRequest;
@@ -17,9 +18,11 @@ import com.yeswater.iam.interfaces.dto.UpsertTenantFederationRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -153,12 +156,59 @@ public class IamManagementController {
                 request.resource(),
                 request.action(),
                 request.expression(),
+                request.appCode(),
                 request.createdBy(),
                 request.owner(),
                 request.modifiedBy(),
                 resolveClientIp(httpServletRequest)
         );
         return ResponseEntity.ok(Map.of("policyId", policyId));
+    }
+
+    /**
+     * 更新 ABAC 策略。
+     */
+    @PutMapping("/abac-policies/{id}")
+    public ResponseEntity<Map<String, Object>> updateAbacPolicy(
+            @PathVariable("id") Long id,
+            @Valid @RequestBody UpdateAbacPolicyRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        boolean updated = iamManagementApplicationService.updateAbacPolicy(
+                id,
+                request.policyName(),
+                request.resource(),
+                request.action(),
+                request.expression(),
+                request.appCode(),
+                request.owner(),
+                request.modifiedBy(),
+                resolveClientIp(httpServletRequest)
+        );
+        if (!updated) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(Map.of("policyId", id));
+    }
+
+    /**
+     * 删除 ABAC 策略。
+     */
+    @DeleteMapping("/abac-policies/{id}")
+    public ResponseEntity<Map<String, Object>> deleteAbacPolicy(
+            @PathVariable("id") Long id,
+            @RequestParam(value = "modifiedBy", required = false) String modifiedBy,
+            HttpServletRequest httpServletRequest
+    ) {
+        boolean deleted = iamManagementApplicationService.deleteAbacPolicy(
+                id,
+                modifiedBy,
+                resolveClientIp(httpServletRequest)
+        );
+        if (!deleted) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(Map.of("policyId", id));
     }
 
     /**
@@ -181,6 +231,7 @@ public class IamManagementController {
                     row.put("resourceCode", item.resourceCode());
                     row.put("actionCode", item.actionCode());
                     row.put("expression", item.expression());
+                    row.put("appCode", item.appCode());
                     row.put("status", item.status());
                     row.put("createdBy", item.createdBy());
                     row.put("owner", item.owner());
@@ -311,6 +362,8 @@ public class IamManagementController {
                 request.issuer(),
                 request.externalTenant(),
                 request.enabled() == null || request.enabled(),
+                request.appCode(),
+                request.modifiedBy(),
                 resolveClientIp(httpServletRequest)
         );
         return ResponseEntity.ok(Map.of("message", "tenant federation updated"));
@@ -320,8 +373,43 @@ public class IamManagementController {
      * 查询租户联邦映射。
      */
     @GetMapping("/tenant-federations")
-    public ResponseEntity<List<?>> listTenantFederations() {
-        return ResponseEntity.ok(iamManagementApplicationService.listTenantFederations());
+    public ResponseEntity<List<Map<String, Object>>> listTenantFederations() {
+        List<Map<String, Object>> rows = iamManagementApplicationService.listTenantFederations().stream()
+                .map(item -> {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("id", item.id());
+                    row.put("tenantCode", item.tenantCode());
+                    row.put("issuer", item.issuer());
+                    row.put("externalTenant", item.externalTenant());
+                    row.put("appCode", item.appCode());
+                    row.put("status", item.status());
+                    row.put("modifiedBy", item.modifiedBy());
+                    row.put("gmtCreate", item.gmtCreate());
+                    row.put("gmtModified", item.gmtModified());
+                    return row;
+                })
+                .toList();
+        return ResponseEntity.ok(rows);
+    }
+
+    /**
+     * 删除租户联邦映射。
+     */
+    @DeleteMapping("/tenant-federations/{id}")
+    public ResponseEntity<Map<String, Object>> deleteTenantFederation(
+            @PathVariable("id") Long id,
+            @RequestParam(value = "modifiedBy", required = false) String modifiedBy,
+            HttpServletRequest httpServletRequest
+    ) {
+        boolean deleted = iamManagementApplicationService.deleteTenantFederation(
+                id,
+                modifiedBy,
+                resolveClientIp(httpServletRequest)
+        );
+        if (!deleted) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(Map.of("id", id));
     }
 
     /**

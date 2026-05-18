@@ -1,21 +1,4 @@
-body {
-  margin: 0;
-  background: #f5f7fb;
-  color: #1f2937;
-  font-family: Arial, "Microsoft YaHei", sans-serif;
-}
-
-.page {
-  padding: 24px;
-}
-
-.page-actions {
-  margin-bottom: 16px;
-}
-
-.card {
-  margin-bottom: 16px;
-}
+/* BIDS 业务样式；布局见 @yeds/ui */
 
 .sql-box {
   min-height: 120px;
@@ -25,4 +8,27 @@ body {
   background: #111827;
   border-radius: 6px;
   white-space: pre-wrap;
+}
+
+.page-card :deep(.el-card__body) {
+  padding-top: 4px;
+}
+
+.mb {
+  margin-bottom: 12px;
+}
+
+.mb-table {
+  margin-bottom: 16px;
+}
+
+.inner-card {
+  margin-bottom: 16px;
+  border: none !important;
+  box-shadow: var(--yeds-shadow-card) !important;
+}
+
+.result-pager {
+  margin-top: 12px;
+  justify-content: flex-end;
 }

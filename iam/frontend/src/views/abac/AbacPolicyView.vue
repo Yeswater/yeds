@@ -1,14 +1,7 @@
 <template>
   <div class="page-stack">
-    <el-card class="panel">
-      <template #header>
-        <div class="panel-title">
-          <span>ABAC 策略管理</span>
-          <el-tag type="success" effect="plain">POLICY</el-tag>
-        </div>
-      </template>
-
-      <el-form label-width="88px" :model="queryForm">
+    <YedsListPageCard title="ABAC 策略管理" tag="POLICY">
+      <YedsListQueryHead :model="queryForm" :loading="querying" @search="queryPolicies" @reset="onReset">
         <el-form-item label="策略名称">
           <el-input v-model="queryForm.policyName" clearable />
         </el-form-item>
@@ -20,26 +13,46 @@
             <el-option v-for="action in actionOptions" :key="action" :label="action" :value="action" />
           </el-select>
         </el-form-item>
-        <el-form-item>
-          <el-button :loading="querying" @click="queryPolicies">查询</el-button>
-          <el-button type="primary" @click="openCreateDrawer">新建策略</el-button>
-        </el-form-item>
-      </el-form>
+      </YedsListQueryHead>
 
-      <el-table v-if="policyRows.length" :data="policyRows" border stripe size="small">
-        <el-table-column prop="policyName" label="策略名" min-width="150" />
-        <el-table-column prop="resourceCode" label="资源" min-width="120" />
-        <el-table-column prop="actionCode" label="动作" width="110" />
-        <el-table-column prop="expression" label="表达式" min-width="280" show-overflow-tooltip />
-        <el-table-column prop="creator" label="创建人" width="100" />
-        <el-table-column prop="owner" label="责任人" width="100" />
-        <el-table-column prop="gmtModified" label="最后修改时间" min-width="170" />
-        <el-table-column prop="modifier" label="最后修改人" width="110" />
-      </el-table>
-      <el-empty v-else description="暂无策略数据，请设置筛选条件后查询" />
-    </el-card>
+      <YedsListToolbar>
+        <el-button type="primary" @click="openCreateDrawer">新建策略</el-button>
+      </YedsListToolbar>
 
-    <el-drawer v-model="createVisible" title="创建 ABAC 策略" size="560px" destroy-on-close>
+      <YedsListTableWrap>
+        <el-table :data="pagedRows" border stripe size="small">
+          <YedsTableOperationColumn
+            :delete-message="(row) => `确认删除策略「${row.policyName}」吗？`"
+            @copy="onCopy"
+            @edit="openEditDrawer"
+            @delete="onDelete"
+          />
+          <el-table-column prop="policyName" label="策略名" min-width="150" />
+          <el-table-column prop="resourceCode" label="资源" min-width="120" />
+          <el-table-column prop="actionCode" label="动作" width="110" />
+          <el-table-column prop="expression" label="表达式" min-width="280" show-overflow-tooltip />
+          <el-table-column prop="owner" label="责任人" width="100" />
+          <YedsTableAuditColumns />
+          <template #empty>
+            <el-empty description="暂无策略数据，请设置筛选条件后查询" />
+          </template>
+        </el-table>
+      </YedsListTableWrap>
+
+      <YedsListPagination
+        :total="total"
+        :page-size="pageSize"
+        :current-page="currentPage"
+        @update:current-page="onPageChange"
+      />
+    </YedsListPageCard>
+
+    <el-drawer
+      v-model="drawerVisible"
+      :title="editingId ? '编辑 ABAC 策略' : '创建 ABAC 策略'"
+      size="560px"
+      destroy-on-close
+    >
       <el-form ref="formRef" label-width="96px" :model="form" :rules="rules">
         <el-form-item label="策略名称" prop="policyName">
           <el-input v-model="form.policyName" />
@@ -59,8 +72,10 @@
           <el-input v-model="form.owner" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="loading" @click="submit">创建</el-button>
-          <el-button @click="createVisible = false">取消</el-button>
+          <el-button type="primary" :loading="loading" @click="submit">
+            {{ editingId ? '保存' : '创建' }}
+          </el-button>
+          <el-button @click="drawerVisible = false">取消</el-button>
         </el-form-item>
       </el-form>
     </el-drawer>
@@ -68,31 +83,46 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { createAbacPolicy, listAbacPolicies } from '../../api/abacApi'
+import { onMounted, reactive, ref } from 'vue'
+import { ElMessage } from 'element-plus'
+import {
+  YedsListPageCard,
+  YedsListQueryHead,
+  YedsListToolbar,
+  YedsListTableWrap,
+  YedsListPagination,
+  YedsTableOperationColumn,
+  YedsTableAuditColumns,
+  useListQuery,
+  useClientPager,
+  mapAuditRows
+} from '@yeds/ui'
+import { createAbacPolicy, deleteAbacPolicy, listAbacPolicies, updateAbacPolicy } from '../../api/abacApi'
 import { useAuthStore } from '../../stores/authStore'
 
 const formRef = ref(null)
 const loading = ref(false)
 const querying = ref(false)
-const createVisible = ref(false)
+const drawerVisible = ref(false)
+const editingId = ref(null)
 const policyRows = ref([])
 const authStore = useAuthStore()
-const queryTimer = ref(0)
 
 const actionOptions = ['execute', 'read', 'write', 'delete']
 
-const queryForm = reactive({
+const { model: queryForm, resetModel } = useListQuery({
   policyName: '',
   resourceCode: '',
   actionCode: ''
 })
 
+const { currentPage, pageSize, total, pagedRows, onPageChange } = useClientPager(policyRows, 20)
+
 const form = reactive({
-  policyName: '租户隔离执行策略',
+  policyName: '',
   resource: 'bids:model',
   action: 'execute',
-  expression: 'tenantCode=tenant-a;department=platform;envTag=prod',
+  expression: '',
   owner: authStore.username || 'admin'
 })
 
@@ -104,28 +134,73 @@ const rules = {
   owner: [{ required: true, message: '请输入责任人', trigger: 'blur' }]
 }
 
+function resetFormDefaults() {
+  form.policyName = '租户隔离执行策略'
+  form.resource = 'bids:model'
+  form.action = 'execute'
+  form.expression = 'tenantCode=tenant-a;department=platform;envTag=prod'
+  form.owner = authStore.username || 'admin'
+}
+
 function openCreateDrawer() {
-  createVisible.value = true
+  editingId.value = null
+  resetFormDefaults()
+  drawerVisible.value = true
+}
+
+function openEditDrawer(row) {
+  editingId.value = row.id
+  form.policyName = row.policyName || ''
+  form.resource = row.resourceCode || ''
+  form.action = row.actionCode || ''
+  form.expression = row.expression === '-' ? '' : row.expression || ''
+  form.owner = row.owner === '-' ? authStore.username || 'admin' : row.owner
+  drawerVisible.value = true
+}
+
+function onCopy(row) {
+  editingId.value = null
+  form.policyName = `${row.policyName || ''}-副本`
+  form.resource = row.resourceCode || ''
+  form.action = row.actionCode || ''
+  form.expression = row.expression === '-' ? '' : row.expression || ''
+  form.owner = row.owner === '-' ? authStore.username || 'admin' : row.owner
+  drawerVisible.value = true
+}
+
+async function onDelete(row) {
+  const operator = authStore.username || 'admin'
+  await deleteAbacPolicy(row.id, operator)
+  ElMessage.success('策略已删除')
+  await queryPolicies()
+}
+
+function onReset() {
+  resetModel()
+  queryPolicies()
 }
 
 async function queryPolicies() {
   querying.value = true
-  const response = await listAbacPolicies({
-    policyName: queryForm.policyName,
-    resourceCode: queryForm.resourceCode,
-    actionCode: queryForm.actionCode,
-    limit: 100
-  })
-  const rows = Array.isArray(response.payload) ? response.payload : []
-  policyRows.value = rows.map((row) => ({
-    ...row,
-    creator: row.createdBy || '-',
-    owner: row.owner || '-',
-    modifier: row.modifiedBy || '-',
-    gmtModified: row.gmtModified || '-',
-    expression: row.expression || '-'
-  }))
-  querying.value = false
+  try {
+    const response = await listAbacPolicies({
+      policyName: queryForm.policyName,
+      resourceCode: queryForm.resourceCode,
+      actionCode: queryForm.actionCode,
+      limit: 200
+    })
+    const rows = Array.isArray(response.payload) ? response.payload : []
+    policyRows.value = mapAuditRows(
+      rows.map((row) => ({
+        ...row,
+        owner: row.owner || '-',
+        expression: row.expression || '-'
+      })),
+      'IAM'
+    )
+  } finally {
+    querying.value = false
+  }
 }
 
 async function submit() {
@@ -134,36 +209,30 @@ async function submit() {
     return
   }
   loading.value = true
-  await createAbacPolicy({
-    policyName: form.policyName,
-    resource: form.resource,
-    action: form.action,
-    expression: form.expression,
-    createdBy: authStore.username || 'admin',
-    owner: form.owner,
-    modifiedBy: authStore.username || 'admin'
-  })
-  loading.value = false
-  createVisible.value = false
-  await queryPolicies()
-}
-
-function scheduleQuery() {
-  window.clearTimeout(queryTimer.value)
-  queryTimer.value = window.setTimeout(() => {
-    queryPolicies()
-  }, 300)
-}
-
-watch(
-  () => [queryForm.policyName, queryForm.resourceCode, queryForm.actionCode],
-  () => {
-    scheduleQuery()
+  try {
+    const operator = authStore.username || 'admin'
+    const payload = {
+      policyName: form.policyName,
+      resource: form.resource,
+      action: form.action,
+      expression: form.expression,
+      owner: form.owner,
+      modifiedBy: operator
+    }
+    if (editingId.value) {
+      await updateAbacPolicy(editingId.value, payload)
+    } else {
+      await createAbacPolicy({
+        ...payload,
+        createdBy: operator
+      })
+    }
+    drawerVisible.value = false
+    await queryPolicies()
+  } finally {
+    loading.value = false
   }
-)
+}
 
 onMounted(queryPolicies)
-onBeforeUnmount(() => {
-  window.clearTimeout(queryTimer.value)
-})
 </script>

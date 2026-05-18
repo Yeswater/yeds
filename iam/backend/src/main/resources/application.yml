@@ -14,6 +14,11 @@ spring:
       schema-locations: classpath:schema.sql
       data-locations: classpath:data.sql
 
+yeds:
+  login:
+    # 统一登录 SPA 未带 redirect_uri 时的默认回跳（仅兜底）
+    default-redirect-uri: ${YEDS_LOGIN_DEFAULT_REDIRECT_URI:http://127.0.0.1:5181/auth/sso-callback?redirect=/abac/policy}
+
 iam:
   jwt:
     issuer: yeds-iam
