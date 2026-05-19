@@ -5,16 +5,13 @@ spring:
   application:
     name: alb-controlplane
   datasource:
-    url: jdbc:h2:file:./data/alb-controlplane;MODE=MySQL;AUTO_SERVER=TRUE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    url: ${ALB_DB_URL:jdbc:mysql://127.0.0.1:3306/alb?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${ALB_DB_USERNAME:bids}
+    password: ${ALB_DB_PASSWORD:bids}
+    driver-class-name: com.mysql.cj.jdbc.Driver
   sql:
     init:
-      # 文件型 H2 仅首次建库时执行；避免每次启动重复 CREATE INDEX 失败
-      mode: embedded
-      schema-locations: classpath:schema.sql
-      data-locations: classpath:data.sql
+      mode: ${ALB_SQL_INIT_MODE:never}
 
 alb:
   controlplane:

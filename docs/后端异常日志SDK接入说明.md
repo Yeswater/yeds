@@ -66,7 +66,22 @@ yeds:
 - 增加 `BusinessExceptionMapper`，将 `BusinessException` 映射为 400
 - `InternalAccessFilter` 拒绝分支新增 `WARN` 日志（含 `traceId`）
 
-## 6. 验证清单
+## 6. 构建与 Docker
+
+`common-web-starter` 位于 monorepo 根目录 `foundation/`，**未**发布到 Maven Central。
+
+| 场景 | 做法 |
+|------|------|
+| **本地 `mvn spring-boot:run`** | 须先在宿主机：`cd foundation && mvn -q -DskipTests install` |
+| **Docker 启动全栈** | 仓库根 `docker-compose.yml`（`name: yeds`）：`up` 时自动跑 `yeds-backend-build` 等任务生成 jar/dist，运行时挂载 `target/*.jar`，**无需** 业务镜像 `docker compose build` |
+| **宿主机预构建** | `./deploy/scripts/build-yeds-artifacts.sh`（含 foundation、BIDS/IAM/ALB/APIG jar 与各前端 dist） |
+
+```bash
+cd <yeds 根>
+docker compose -f docker-compose.yml -f docker-compose.macos.yml up -d
+```
+
+## 7. 验证清单
 
 编译验证：
 

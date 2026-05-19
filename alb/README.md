@@ -5,8 +5,8 @@
 ## 快速命令
 
 ```bash
-./deploy/scripts/install-hosts.sh
-cd deploy && docker compose up -d
+./alb/deploy/scripts/install-hosts.sh
+cd <yeds 仓库根> && docker compose up -d alb-nginx
 ```
 
 访问：**http://localhost/iam/** | **http://localhost/bids/** | **http://localhost/apig/iam/login/**

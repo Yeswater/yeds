@@ -1,0 +1,30 @@
+# macOS（Docker Desktop）：合并使用
+# docker compose -f docker-compose.yml -f docker-compose.macos.yml up -d
+services:
+  elasticsearch:
+    environment:
+      ES_JAVA_OPTS: "-Xms256m -Xmx256m"
+    healthcheck:
+      interval: 5s
+      timeout: 5s
+      retries: 18
+      start_period: 25s
+
+  bids-config:
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0"
+  bids-exec:
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0"
+  bids-export:
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0"
+  iam-backend:
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0"
+  alb-controlplane:
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0"
+  apig-gateway:
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0"

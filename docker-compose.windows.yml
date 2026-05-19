@@ -1,0 +1,5 @@
+# Windows（Docker Desktop / WSL2 后端）：合并使用
+# docker compose -f docker-compose.yml -f docker-compose.windows.yml up -d
+services:
+  mysql:
+    stop_grace_period: 60s

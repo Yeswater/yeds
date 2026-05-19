@@ -1,0 +1,408 @@
+# YEDS 平台 Docker Compose（仓库根目录执行，项目名 yeds）
+#
+# 仅中间件（日常本机开发）：  docker compose up -d
+# 全栈（业务容器）：           docker compose --profile full up -d
+# 仅构建产物（脚本自动调用）： docker compose --profile build up
+# 首次 MySQL：               docker compose build --pull=false mysql
+#
+# 后端挂载宿主机 target/*.jar；全栈 up 会自动跑 *-build 一次性任务。勿对业务服务使用 up --build。
+name: yeds
+
+x-java-service: &java_service
+  image: ${REGISTRY_PREFIX}${JAVA_RUN_IMAGE:-eclipse-temurin:21-jre-jammy}
+  pull_policy: if_not_present
+  working_dir: /app
+  command: ["java", "-jar", "/app/app.jar"]
+  restart: unless-stopped
+  networks:
+    - yeds
+
+networks:
+  yeds:
+    driver: bridge
+
+volumes:
+  yeds_mysql_data:
+  yeds_es_data:
+  yeds_pg_data:
+  yeds_rustfs_data:
+  yeds_m2_cache:
+
+services:
+  # --- 一次性构建（restart: no，运行时服务 depends_on condition: service_completed_successfully）---
+  yeds-login-build:
+    profiles: [build]
+    image: ${REGISTRY_PREFIX}${NODE_IMAGE:-node:20-alpine}
+    pull_policy: if_not_present
+    container_name: yeds-login-build
+    working_dir: /w/shared/frontend/yeds-login-web
+    volumes:
+      - .:/w:cached
+    command: sh -c "npm ci && npm run build:deploy"
+    restart: "no"
+    networks:
+      - yeds
+
+  yeds-backend-build:
+    profiles: [build]
+    image: ${REGISTRY_PREFIX}${MAVEN_BUILD_IMAGE:-maven:3.9.9-eclipse-temurin-21}
+    pull_policy: if_not_present
+    container_name: yeds-backend-build
+    working_dir: /w
+    volumes:
+      - .:/w:cached
+      - yeds_m2_cache:/root/.m2
+    depends_on:
+      yeds-login-build:
+        condition: service_completed_successfully
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        mvn -q -f foundation/pom.xml install -DskipTests
+        mvn -q -f bids/backend/pom.xml package -pl bids-config,bids-exec,bids-export -am -DskipTests
+        mvn -q -f iam/backend/pom.xml package -DskipTests
+        mvn -q -f alb/pom.xml package -pl alb-controlplane -am -DskipTests
+        mvn -q -f apig/pom.xml package -pl gateway-dataplane -am -DskipTests
+    restart: "no"
+    networks:
+      - yeds
+
+  bids-frontend-build:
+    profiles: [build]
+    image: ${REGISTRY_PREFIX}${NODE_IMAGE:-node:20-alpine}
+    pull_policy: if_not_present
+    container_name: yeds-bids-frontend-build
+    working_dir: /w/bids/frontend
+    volumes:
+      - .:/w:cached
+    environment:
+      VITE_API_BASE: /apig
+    command: sh -c "npm ci && npm run build"
+    restart: "no"
+    networks:
+      - yeds
+
+  iam-frontend-build:
+    profiles: [build]
+    image: ${REGISTRY_PREFIX}${NODE_IMAGE:-node:20-alpine}
+    pull_policy: if_not_present
+    container_name: yeds-iam-frontend-build
+    working_dir: /w/iam/frontend
+    volumes:
+      - .:/w:cached
+    environment:
+      VITE_API_BASE_URL: /apig
+    command: sh -c "npm ci && npm run build"
+    restart: "no"
+    networks:
+      - yeds
+
+  alb-console-build:
+    profiles: [build]
+    image: ${REGISTRY_PREFIX}${NODE_IMAGE:-node:20-alpine}
+    pull_policy: if_not_present
+    container_name: yeds-alb-console-build
+    working_dir: /w/alb/alb-console
+    volumes:
+      - .:/w:cached
+    command: sh -c "npm ci && npm run build"
+    restart: "no"
+    networks:
+      - yeds
+
+  # --- 中间件 ---
+  mysql:
+    build:
+      context: ./deploy/docker/mysql
+      pull: false
+      args:
+        MYSQL_BASE_IMAGE: ${REGISTRY_PREFIX}${MYSQL_BASE_IMAGE:-mysql:8.0}
+    image: yeds-mysql:8
+    container_name: yeds-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: bids
+      MYSQL_USER: bids
+      MYSQL_PASSWORD: bids
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - yeds_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    networks:
+      - yeds
+
+  postgres:
+    image: ${REGISTRY_PREFIX}${POSTGRES_IMAGE:-postgres:16-alpine}
+    pull_policy: if_not_present
+    container_name: yeds-postgres
+    environment:
+      POSTGRES_USER: bids
+      POSTGRES_PASSWORD: bids
+      POSTGRES_DB: bids_fin_demo
+    ports:
+      - "5432:5432"
+    volumes:
+      - yeds_pg_data:/var/lib/postgresql/data
+      - ./deploy/docker/pgsql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bids -d bids_fin_demo"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    networks:
+      - yeds
+
+  elasticsearch:
+    image: ${REGISTRY_PREFIX}${ES_IMAGE:-elasticsearch:8.15.3}
+    pull_policy: if_not_present
+    container_name: yeds-elasticsearch
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - yeds_es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:9200/_cluster/health?wait_for_status=yellow&timeout=5s >/dev/null"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - yeds
+
+  rustfs:
+    image: ${RUSTFS_IMAGE:-rustfs/rustfs:latest}
+    pull_policy: if_not_present
+    container_name: yeds-rustfs
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
+    volumes:
+      - yeds_rustfs_data:/data
+    restart: unless-stopped
+    networks:
+      - yeds
+
+  # --- 后端（挂载 jar）---
+  iam-backend:
+    profiles: [full]
+    <<: *java_service
+    container_name: yeds-iam-backend
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - ./iam/backend/target/iam-backend-0.0.1-SNAPSHOT.jar:/app/app.jar:ro
+    environment:
+      IAM_DB_URL: jdbc:mysql://mysql:3306/iam?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      IAM_DB_USERNAME: bids
+      IAM_DB_PASSWORD: bids
+      IAM_SQL_INIT_MODE: never
+    ports:
+      - "8091:8091"
+
+  alb-controlplane:
+    profiles: [full]
+    <<: *java_service
+    container_name: yeds-alb-controlplane
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - ./alb/alb-controlplane/target/alb-controlplane-0.0.1-SNAPSHOT.jar:/app/app.jar:ro
+    environment:
+      ALB_DB_URL: jdbc:mysql://mysql:3306/alb?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      ALB_DB_USERNAME: bids
+      ALB_DB_PASSWORD: bids
+      ALB_SQL_INIT_MODE: never
+    ports:
+      - "8095:8095"
+
+  apig-gateway:
+    profiles: [full]
+    <<: *java_service
+    container_name: yeds-apig-gateway
+    depends_on:
+      iam-backend:
+        condition: service_started
+      bids-config:
+        condition: service_started
+      bids-exec:
+        condition: service_started
+    volumes:
+      - ./apig/gateway-dataplane/target/gateway-dataplane-1.0.0-SNAPSHOT.jar:/app/app.jar:ro
+    environment:
+      IAM_JWK_SET_URI: http://iam-backend:8091/api/iam/auth/jwks
+      IAM_AUTHORIZE_CHECK_URL: http://iam-backend:8091/api/iam/authorize/check
+      IAM_BASE_URL: http://iam-backend:8091
+      BIDS_CONFIG_BASE_URL: http://bids-config:8081
+      BIDS_EXEC_BASE_URL: http://bids-exec:8082
+    expose:
+      - "8080"
+
+  bids-config:
+    profiles: [full]
+    <<: *java_service
+    container_name: yeds-bids-config
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - ./bids/backend/bids-config/target/bids-config-0.0.1-SNAPSHOT.jar:/app/app.jar:ro
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      BIDS_CONFIG_DB_URL: jdbc:mysql://mysql:3306/bids?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      BIDS_CONFIG_DB_USERNAME: bids
+      BIDS_CONFIG_DB_PASSWORD: bids
+      BIDS_ADMIN_USERNAME: ${BIDS_ADMIN_USERNAME:-admin}
+      BIDS_ADMIN_PASSWORD: ${BIDS_ADMIN_PASSWORD:-admin}
+    ports:
+      - "8081:8081"
+
+  bids-export:
+    profiles: [full]
+    <<: *java_service
+    container_name: yeds-bids-export
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rustfs:
+        condition: service_started
+    volumes:
+      - ./bids/backend/bids-export/target/bids-export-0.0.1-SNAPSHOT.jar:/app/app.jar:ro
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_SQL_INIT_MODE: never
+      BIDS_EXPORT_DB_URL: jdbc:mysql://mysql:3306/bids?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      BIDS_EXPORT_DB_USERNAME: bids
+      BIDS_EXPORT_DB_PASSWORD: bids
+      BIDS_EXPORT_INTERNAL_TOKEN: ${BIDS_EXPORT_INTERNAL_TOKEN:-change-me}
+      BIDS_EXPORT_RUSTFS_ENDPOINT: http://rustfs:9000
+      BIDS_EXPORT_RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      BIDS_EXPORT_RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin}
+      BIDS_EXPORT_STORAGE_TYPE: s3
+    ports:
+      - "8083:8083"
+
+  bids-exec:
+    profiles: [full]
+    <<: *java_service
+    container_name: yeds-bids-exec
+    depends_on:
+      mysql:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_started
+      bids-config:
+        condition: service_started
+      bids-export:
+        condition: service_started
+    volumes:
+      - ./bids/backend/bids-exec/target/bids-exec-0.0.1-SNAPSHOT.jar:/app/app.jar:ro
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      BIDS_CONFIG_DB_URL: jdbc:mysql://mysql:3306/bids?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      BIDS_CONFIG_DB_USERNAME: bids
+      BIDS_CONFIG_DB_PASSWORD: bids
+      BIDS_ADMIN_USERNAME: ${BIDS_ADMIN_USERNAME:-admin}
+      BIDS_ADMIN_PASSWORD: ${BIDS_ADMIN_PASSWORD:-admin}
+      BIDS_EXPORT_CLIENT_BASE_URL: http://bids-export:8083
+      BIDS_EXPORT_INTERNAL_TOKEN: ${BIDS_EXPORT_INTERNAL_TOKEN:-change-me}
+    ports:
+      - "8082:8082"
+
+  # --- 前端（挂载 dist）---
+  bids-web:
+    profiles: [full]
+    image: ${REGISTRY_PREFIX}${NGINX_IMAGE:-nginx:alpine}
+    pull_policy: if_not_present
+    container_name: yeds-bids-web
+    depends_on:
+      bids-config:
+        condition: service_started
+      bids-exec:
+        condition: service_started
+      apig-gateway:
+        condition: service_started
+    volumes:
+      - ./deploy/docker/bids-web/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./bids/frontend/dist:/usr/share/nginx/html:ro
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    networks:
+      - yeds
+
+  iam-web:
+    profiles: [full]
+    image: ${REGISTRY_PREFIX}${NGINX_IMAGE:-nginx:alpine}
+    pull_policy: if_not_present
+    container_name: yeds-iam-web
+    depends_on:
+      apig-gateway:
+        condition: service_started
+    volumes:
+      - ./deploy/docker/iam-web/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./iam/frontend/dist:/usr/share/nginx/html:ro
+    ports:
+      - "5181:80"
+    restart: unless-stopped
+    networks:
+      - yeds
+
+  alb-console-web:
+    profiles: [full]
+    image: ${REGISTRY_PREFIX}${NGINX_IMAGE:-nginx:alpine}
+    pull_policy: if_not_present
+    container_name: yeds-alb-console-web
+    depends_on:
+      alb-controlplane:
+        condition: service_started
+    volumes:
+      - ./deploy/docker/alb-console-web/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./alb/alb-console/dist:/usr/share/nginx/html:ro
+    ports:
+      - "5185:80"
+    restart: unless-stopped
+    networks:
+      - yeds
+
+  alb-nginx:
+    profiles: [full]
+    image: ${REGISTRY_PREFIX}nginx:1.27-alpine
+    pull_policy: if_not_present
+    container_name: yeds-alb-nginx
+    depends_on:
+      - bids-web
+      - iam-web
+      - alb-console-web
+      - apig-gateway
+      - iam-backend
+      - alb-controlplane
+    ports:
+      - "80:80"
+    volumes:
+      - ./deploy/docker/alb/nginx.yeds-network.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/docker/alb/api-upstream-locations.conf:/etc/nginx/yeds/api-upstream-locations.conf:ro
+    restart: unless-stopped
+    networks:
+      - yeds

@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: gateway-dataplane
+  config:
+    import: optional:classpath:application-logging.yml
 
 management:
   endpoints:
