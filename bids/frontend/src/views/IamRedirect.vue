@@ -14,8 +14,8 @@ function resolveIamLoginUrl() {
   const configured =
     import.meta.env.VITE_YEDS_LOGIN_URL ||
     import.meta.env.VITE_IAM_LOGIN_URL ||
-    new URL('/iam/login/', window.location.origin).toString()
-  const callbackUrl = new URL('/auth/iam/callback', window.location.origin)
+    '/apig/iam/login/'
+  const callbackUrl = new URL('/bids/auth/iam/callback', window.location.origin)
   const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/run/svc'
   callbackUrl.searchParams.set('redirect', redirect)
   const loginUrl = new URL(configured, window.location.origin)

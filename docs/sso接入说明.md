@@ -2,6 +2,8 @@
 
 本文描述 BIDS 与 IAM 前端在**已登录状态下切换平台**时的 SSO 行为，以及首次登录与跨应用会话桥接的约定。
 
+> **经 ALB 联调**：浏览器统一入口为 `http://localhost` 或 `http://yeds.local`（文根 `/bids/`、`/iam/`、`/apig/`）。下文中的 `5173`/`5181` 端口可替换为**同源文根**路径；部署与转发表见 [ALB路由与部署指南](./ALB路由与部署指南.md)。
+
 ## 1. 设计目标
 
 - 用户在任一平台登录后，通过左上角平台切换进入另一平台时**无需重复输入账号密码**。
@@ -22,7 +24,20 @@
 
 不同端口 = 不同浏览器 Origin，**无法直接共享** `sessionStorage` / `localStorage`。因此跨平台切换采用 **URL 携带令牌 + 目标应用回调页落盘** 的桥接方式（开发联调场景）。
 
-### 2.2 流程总览
+### 2.2 经 ALB 时的地址对照
+
+启用 [ALB](./ALB路由与部署指南.md) 后，各组件对外地址如下（推荐 `localhost` / `yeds.local`，勿依赖未配置 hosts 的 `yeds.com`）：
+
+| 组件 | 直连开发（旧） | 经 ALB（当前推荐） |
+|------|----------------|-------------------|
+| BIDS 前端 | `http://127.0.0.1:5173` | `http://localhost/bids/` |
+| IAM 前端 | `http://127.0.0.1:5181` | `http://localhost/iam/` |
+| 统一登录 | 网关 `8080/iam/login` | `http://localhost/apig/iam/login/` |
+| API | `http://127.0.0.1:8080/api/...` | `http://localhost/apig/api/...` |
+
+平台切换与 `redirect_uri` 应使用 **当前站点 `window.location.origin`** + 文根（代码已按此适配），例如 IAM SSO 回调：`http://yeds.local/iam/auth/sso-callback`。
+
+### 2.3 流程总览
 
 ```mermaid
 sequenceDiagram
@@ -215,5 +230,6 @@ Vite 开发代理（`vite.config.js`）：
 
 ## 11. 相关文档
 
+- [ALB路由与部署指南.md](./ALB路由与部署指南.md) — 边缘 nginx、文根转发、统一登录入口
 - [BIDS接入yeds安全加固联调说明.md](./BIDS接入yeds安全加固联调说明.md) — 网关、trusted-header、IAM 鉴权
 - [后端异常日志SDK接入说明.md](./后端异常日志SDK接入说明.md) — 统一异常与 traceId

@@ -67,7 +67,22 @@ mvn validate
 
 ## 6. 项目内已落地示例
 
-- 父 POM：`apig/pom.xml`
-- 子模块：`apig/gateway-dataplane/pom.xml`
+| 组件 | 父 POM | 子模块（Spring Boot 应用） |
+|------|--------|------------------------------|
+| APIG | `apig/pom.xml` | `apig/gateway-dataplane/pom.xml` |
+| ALB | `alb/pom.xml` | `alb/alb-controlplane/pom.xml`、`alb/alb-dataplane/pom.xml`（部署见 [ALB路由与部署指南](./ALB路由与部署指南.md)） |
 
-本项目已通过上述方式补齐版本，并验证 `gateway-dataplane` 模块 `mvn validate` 正常。
+子模块约定：
+
+- `<parent>` 使用 `<relativePath>../pom.xml</relativePath>`，便于 IDE 解析多模块关系。
+- `build/plugins` 中声明 `maven-compiler-plugin` 与 `spring-boot-maven-plugin`，**不写版本**（由父 POM `pluginManagement` 统一管理）。
+- IDE 工作区可在对应目录下放置 `.vscode/settings.json`（JDK 21）与 `launch.json`（`mainClass` + `projectName`）。
+
+验证（以 ALB 为例）：
+
+```bash
+cd alb && mvn validate
+cd alb/alb-controlplane && mvn spring-boot:run
+```
+
+本项目已通过上述方式补齐版本，并验证 `gateway-dataplane`、`alb-controlplane`、`alb-dataplane` 模块 `mvn validate` 正常。

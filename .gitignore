@@ -25,6 +25,7 @@ pnpm-debug.log*
 
 # Java / Maven / Gradle
 **/target/
+alb/alb-controlplane/data/
 **/.mvn/wrapper/maven-wrapper.jar
 **/.gradle/
 **/build/

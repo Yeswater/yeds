@@ -1,0 +1,6 @@
+# YEDS 本地 ALB — 追加到 /etc/hosts（需 sudo）
+# 安装：alb/deploy/scripts/install-hosts.sh
+#
+# 重要：公网 DNS 上 yeds.com 指向 AWS 停放页（会跳 /lander），本地必须用 hosts 覆盖。
+# 推荐优先使用 yeds.local（无公网解析）；Chrome 若开启「安全 DNS」可能绕过 hosts，请关闭或改用 localhost。
+127.0.0.1 yeds.local www.yeds.local yeds.com www.yeds.com localhost

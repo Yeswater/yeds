@@ -7,7 +7,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
+  const apigTarget = env.VITE_APIG_PROXY_TARGET || 'http://127.0.0.1:8080'
   return {
+    base: '/iam/',
     plugins: [vue()],
     resolve: {
       alias: {
@@ -16,17 +18,23 @@ export default defineConfig(({ mode }) => {
       }
     },
     server: {
-      host: '127.0.0.1',
+      // 0.0.0.0：供 Docker nginx（host.docker.internal）反代；浏览器经 yeds.com/iam/ 访问
+      host: '0.0.0.0',
       port: 5181,
+      strictPort: true,
+      allowedHosts: true,
       proxy: {
-        '/api': {
-          target: env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8091',
-          changeOrigin: true
-        },
-        '/iam': {
-          target: env.VITE_GATEWAY_PROXY_TARGET || 'http://127.0.0.1:8080',
-          changeOrigin: true
+        '/apig': {
+          target: apigTarget,
+          changeOrigin: true,
+          rewrite: (p) => p.replace(/^\/apig/, '')
         }
+      },
+      hmr: {
+        protocol: 'ws',
+        host: env.VITE_DEV_HOST || 'localhost',
+        clientPort: 80,
+        path: '/iam/'
       }
     }
   }

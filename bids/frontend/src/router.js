@@ -7,7 +7,7 @@ import IamRedirect from './views/IamRedirect.vue'
 import IamCallback from './views/IamCallback.vue'
 
 export const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory('/bids/'),
   routes: [
     {
       path: '/login',

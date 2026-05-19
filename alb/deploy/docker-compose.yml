@@ -1,0 +1,13 @@
+# ALB 数据面：nginx 反向代理（本地开发）
+# 用法：cd alb/deploy && docker compose up -d
+services:
+  alb-nginx:
+    image: nginx:1.27-alpine
+    container_name: yeds-alb-nginx
+    ports:
+      # 仅暴露 80；9080 常与宿主机上残留的 alb-dataplane/Java 冲突
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.docker.conf:/etc/nginx/conf.d/default.conf:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

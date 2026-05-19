@@ -1,6 +1,6 @@
 import { isLoggedIn, useAuthStore } from './stores/authStore'
 
-const BIDS_FRONTEND_BASE = (import.meta.env.VITE_BIDS_FRONTEND_URL || 'http://127.0.0.1:5173').replace(/\/$/, '')
+const BIDS_FRONTEND_BASE = (import.meta.env.VITE_BIDS_FRONTEND_URL || `${window.location.origin}/bids`).replace(/\/$/, '')
 const BIDS_DEFAULT_PATH = '/run/svc'
 
 function safeRedirectPath(path, fallback) {
@@ -23,7 +23,7 @@ export function buildBidsSsoCallbackUrl(redirectPath = BIDS_DEFAULT_PATH) {
   }
   const authStore = useAuthStore()
   const target = safeRedirectPath(redirectPath, BIDS_DEFAULT_PATH)
-  const callback = new URL('/auth/iam/callback', BIDS_FRONTEND_BASE)
+  const callback = new URL(`${BIDS_FRONTEND_BASE}/auth/iam/callback`)
   callback.searchParams.set('access_token', authStore.accessToken)
   callback.searchParams.set('refresh_token', authStore.refreshToken)
   callback.searchParams.set('expires_in', String(sessionExpiresInSeconds(authStore)))
@@ -37,7 +37,7 @@ export function buildBidsSsoCallbackUrl(redirectPath = BIDS_DEFAULT_PATH) {
  */
 export function buildBidsLoginEntryUrl(redirectPath = BIDS_DEFAULT_PATH) {
   const target = safeRedirectPath(redirectPath, BIDS_DEFAULT_PATH)
-  const loginUrl = new URL('/login', BIDS_FRONTEND_BASE)
+  const loginUrl = new URL(`${BIDS_FRONTEND_BASE}/login`)
   loginUrl.searchParams.set('redirect', target)
   return loginUrl.toString()
 }

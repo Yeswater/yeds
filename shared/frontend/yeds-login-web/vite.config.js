@@ -13,7 +13,8 @@ export default defineConfig(({ mode }) => {
     plugins: [vue()],
     resolve: {
       alias: {
-        '@yeds/ui': path.resolve(__dirname, '../yeds-ui/src')
+        '@yeds/ui': path.resolve(__dirname, '../yeds-ui/src'),
+        'element-plus': path.resolve(__dirname, 'node_modules/element-plus')
       }
     },
     server: {
