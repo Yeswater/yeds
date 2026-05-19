@@ -1,0 +1,9 @@
+# 缩小 mysql 等 build context（compose 根目录为仓库根时）
+**/node_modules/
+**/target/
+**/.git/
+**/.idea/
+**/.cursor/
+**/.worktrees/
+**/dist/
+alb/alb-controlplane/data/

@@ -7,9 +7,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
+  const apiBaseUrl = env.VITE_API_BASE_URL || '/apig'
   const apigTarget = env.VITE_APIG_PROXY_TARGET || 'http://127.0.0.1:8080'
   return {
     base: '/iam/',
+    define: {
+      'import.meta.env.VITE_API_BASE_URL': JSON.stringify(apiBaseUrl)
+    },
     plugins: [vue()],
     resolve: {
       alias: {

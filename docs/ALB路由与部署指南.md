@@ -28,7 +28,7 @@ flowchart TB
 
 | 层级 | 组件 | 职责 |
 |------|------|------|
-| **边缘路由（ALB）** | `alb/deploy/nginx` | 单域 + **文根** 转发；SPA/静态；边缘 Header；WebSocket（Vite HMR） |
+| **边缘路由（ALB）** | `deploy/docker/alb`（根 compose `alb-nginx`） | 单域 + **文根** 转发；SPA/静态；边缘 Header；WebSocket（Vite HMR） |
 | **API 网关（APIG）** | `apig/gateway-dataplane` | JWT 验签、IAM 远程鉴权、限流、向下游注入 `X-Bids-*` 等 |
 | **身份（IAM）** | `iam/backend` | 登录、令牌、JWKS、策略 API；托管统一登录静态资源 |
 
@@ -81,7 +81,7 @@ ping -c 1 yeds.local    # 应显示 127.0.0.1
 
 ## 3. 默认路由转发策略
 
-ALB 数据面使用 **nginx**（[`alb/deploy/nginx/nginx.docker.conf`](../alb/deploy/nginx/nginx.docker.conf)）。匹配规则：**location 最长前缀优先**；同长度时配置文件中的声明顺序生效。
+ALB 数据面使用 **nginx**（[`deploy/docker/alb/nginx.docker.conf`](../deploy/docker/alb/nginx.docker.conf)）。匹配规则：**location 最长前缀优先**；同长度时配置文件中的声明顺序生效。
 
 ### 3.1 文根路由表（开发默认）
 
@@ -152,13 +152,13 @@ GET http://yeds.local/bids/run/svc
 ### 4.2 启动 ALB 数据面（nginx）
 
 ```bash
-cd alb/deploy
-docker compose up -d
+cd <yeds 仓库根>
+docker compose up -d   # 含 alb-nginx、各前端与后端；容器网络模式见 deploy/docker/alb/nginx.yeds-network.conf
 ```
 
 - 容器名：`yeds-alb-nginx`
 - 映射端口：**80**（勿与占用 9080 的旧 `alb-dataplane` 冲突）
-- 配置：[`nginx.docker.conf`](../alb/deploy/nginx/nginx.docker.conf)（上游为 `host.docker.internal`）
+- 配置：[`deploy/docker/alb/nginx.docker.conf`](../deploy/docker/alb/nginx.docker.conf)（上游为 `host.docker.internal`）
 
 检查：
 
@@ -179,7 +179,7 @@ curl -sI -H "Host: localhost" http://127.0.0.1/iam/ | head -3
 | 6 | ALB 控制面（可选） | `cd alb/alb-controlplane && mvn spring-boot:run` → **8095** |
 | 7 | ALB 控制台（可选） | `cd alb/alb-console && npm run dev` → **5185** |
 
-中间件（MySQL 等）按 [BIDS 本地构建规则](../bids/docker-compose.yml) 仅起依赖容器，业务进程在宿主机运行。
+中间件（MySQL 等）按仓库根 [docker-compose.yml](../docker-compose.yml) 仅起依赖容器，业务进程在宿主机运行。
 
 ### 4.4 本机 nginx（不用 Docker 时）
 

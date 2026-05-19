@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 COMPOSE=(docker compose -f docker-compose.yml -f docker-compose.macos.yml)
 BASE="${BIDS_E2E_BASE:-http://127.0.0.1:8080}"
