@@ -1,0 +1,19 @@
+# 已废弃：本地数据面请使用 deploy/docker-compose.yml（nginx）。
+# 本模块保留作路径匹配参考实现，勿与 nginx 同时占用 9080。
+server:
+  port: 9081
+
+spring:
+  application:
+    name: alb-dataplane
+
+alb:
+  dataplane:
+    controlplane-snapshot-url: ${ALB_SNAPSHOT_URL:http://127.0.0.1:8095/api/alb/v1/snapshot}
+    snapshot-poll-interval-ms: ${ALB_SNAPSHOT_POLL_MS:10000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

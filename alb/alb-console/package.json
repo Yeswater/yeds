@@ -1,0 +1,20 @@
+{
+  "name": "alb-console",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5185",
+    "lint": "node --check src/main.js && node --check vite.config.js",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "element-plus": "^2.11.4",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.7",
+    "vite": "^8.0.13"
+  }
+}

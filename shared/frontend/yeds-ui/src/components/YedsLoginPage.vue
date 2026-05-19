@@ -20,3 +20,5 @@ defineProps({
   }
 })
 </script>
+
+<style src="../styles/yeds-login-page.css"></style>

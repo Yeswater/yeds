@@ -1,0 +1,22 @@
+# YEDS ALB 开发环境 Caddy 配置（监听 :80）
+# 与 alb-controlplane 种子路由语义一致；生产由发布接口生成等效文件。
+
+{
+	admin off
+}
+
+http://yeds.com {
+	redir http://bids.yeds.com{uri} permanent
+}
+
+http://bids.yeds.com {
+	reverse_proxy 127.0.0.1:5173
+}
+
+http://iam.yeds.com {
+	reverse_proxy 127.0.0.1:5181
+}
+
+http://api.yeds.com {
+	reverse_proxy 127.0.0.1:8080
+}

@@ -11,12 +11,14 @@ import { useRoute } from 'vue-router'
 const route = useRoute()
 
 function resolveLoginUrl() {
-  const configured =
-    import.meta.env.VITE_YEDS_LOGIN_URL || new URL('/iam/login/', window.location.origin).toString()
+  const loginPath = (import.meta.env.VITE_YEDS_LOGIN_PATH || '/apig/iam/login/').replace(/\/$/, '') + '/'
+  const configured = import.meta.env.VITE_YEDS_LOGIN_URL
   const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/abac/policy'
-  const callbackUrl = new URL('/auth/sso-callback', window.location.origin)
+  const callbackUrl = new URL('/iam/auth/sso-callback', window.location.origin)
   callbackUrl.searchParams.set('redirect', redirect)
-  const loginUrl = new URL(configured, window.location.origin)
+  const loginUrl = configured
+    ? new URL(configured, window.location.origin)
+    : new URL(loginPath, window.location.origin)
   loginUrl.searchParams.set('redirect_uri', callbackUrl.toString())
   return loginUrl.toString()
 }

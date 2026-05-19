@@ -1,6 +1,6 @@
 import { isSessionExpired, readSession } from './authStorage.js'
 
-const IAM_FRONTEND_BASE = (import.meta.env.VITE_IAM_FRONTEND_URL || 'http://127.0.0.1:5181').replace(/\/$/, '')
+const IAM_FRONTEND_BASE = (import.meta.env.VITE_IAM_FRONTEND_URL || `${window.location.origin}/iam`).replace(/\/$/, '')
 const IAM_DEFAULT_PATH = '/abac/policy'
 
 function safeRedirectPath(path, fallback) {
@@ -23,7 +23,7 @@ export function buildIamSsoCallbackUrl(redirectPath = IAM_DEFAULT_PATH) {
     return null
   }
   const target = safeRedirectPath(redirectPath, IAM_DEFAULT_PATH)
-  const callback = new URL('/auth/sso-callback', IAM_FRONTEND_BASE)
+  const callback = new URL(`${IAM_FRONTEND_BASE}/auth/sso-callback`)
   callback.searchParams.set('access_token', session.accessToken)
   callback.searchParams.set('refresh_token', session.refreshToken)
   callback.searchParams.set('expires_in', String(sessionExpiresInSeconds(session)))
@@ -37,7 +37,7 @@ export function buildIamSsoCallbackUrl(redirectPath = IAM_DEFAULT_PATH) {
  */
 export function buildIamLoginUrl(redirectPath = IAM_DEFAULT_PATH) {
   const target = safeRedirectPath(redirectPath, IAM_DEFAULT_PATH)
-  const loginUrl = new URL('/login', IAM_FRONTEND_BASE)
+  const loginUrl = new URL(`${IAM_FRONTEND_BASE}/login`)
   loginUrl.searchParams.set('redirect', target)
   return loginUrl.toString()
 }

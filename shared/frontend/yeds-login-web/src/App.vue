@@ -31,7 +31,7 @@
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
-import { YedsLoginPage } from '@yeds/ui'
+import YedsLoginPage from '@yeds/ui/components/YedsLoginPage.vue'
 
 const formRef = ref(null)
 const loading = ref(false)
@@ -52,7 +52,13 @@ function readRedirectUri() {
   const params = new URLSearchParams(window.location.search)
   const value = params.get('redirect_uri') || ''
   if (!value) {
-    return import.meta.env.VITE_DEFAULT_REDIRECT_URI || ''
+    const configured = import.meta.env.VITE_DEFAULT_REDIRECT_URI
+    if (configured) {
+      return configured
+    }
+    const fallback = new URL('/iam/auth/sso-callback', window.location.origin)
+    fallback.searchParams.set('redirect', '/abac/policy')
+    return fallback.toString()
   }
   return value
 }
@@ -78,7 +84,7 @@ async function submit() {
   loading.value = true
   errorMessage.value = ''
   try {
-    const response = await fetch('/api/iam/auth/login', {
+    const response = await fetch('/apig/api/iam/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

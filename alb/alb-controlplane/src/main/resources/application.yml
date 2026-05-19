@@ -1,0 +1,23 @@
+server:
+  port: 8095
+
+spring:
+  application:
+    name: alb-controlplane
+  datasource:
+    url: jdbc:h2:file:./data/alb-controlplane;MODE=MySQL;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  sql:
+    init:
+      # 文件型 H2 仅首次建库时执行；避免每次启动重复 CREATE INDEX 失败
+      mode: embedded
+      schema-locations: classpath:schema.sql
+      data-locations: classpath:data.sql
+
+alb:
+  controlplane:
+    nginx-output-path: ${ALB_NGINX_OUTPUT_PATH:./generated/nginx.conf}
+    caddy-output-path: ${ALB_CADDY_OUTPUT_PATH:./generated/Caddyfile}
+    dataplane-listen-port: ${ALB_DATAPLANE_PORT:9080}

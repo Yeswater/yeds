@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1 --port 5181",
+    "dev": "vite --port 5181",
     "lint": "node --check src/main.js && node --check vite.config.js && node --check src/router/index.js",
     "type-check": "npm run lint",
     "build": "vite build"
