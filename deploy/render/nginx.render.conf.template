@@ -1,0 +1,147 @@
+# Render 单容器：上游均为本机进程（由 start.sh 启动）
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+server {
+    listen ${PORT};
+    server_name _;
+    client_max_body_size 64m;
+
+    location /apig/iam/login/ {
+        rewrite ^/apig(/iam/login/.*)$ $1 break;
+        proxy_pass http://127.0.0.1:8091;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /iam/login/ {
+        proxy_pass http://127.0.0.1:8091$request_uri;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /apig/api/iam/ {
+        rewrite ^/apig(/api/iam/.*)$ $1 break;
+        proxy_pass http://127.0.0.1:8091;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /apig/ {
+        rewrite ^/apig/?(.*)$ /$1 break;
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+    }
+
+    location ^~ /bids/assets/ {
+        alias /opt/yeds/www/bids/assets/;
+    }
+
+    location /bids/ {
+        alias /opt/yeds/www/bids/;
+        try_files $uri $uri/ @bids_spa;
+    }
+
+    location @bids_spa {
+        rewrite ^ /index.html last;
+    }
+
+    location = /bids {
+        return 301 /bids/;
+    }
+
+    location = /iam {
+        return 301 /iam/;
+    }
+
+    location ^~ /iam/assets/ {
+        alias /opt/yeds/www/iam/assets/;
+    }
+
+    location /iam/ {
+        alias /opt/yeds/www/iam/;
+        try_files $uri $uri/ @iam_spa;
+    }
+
+    location @iam_spa {
+        rewrite ^ /index.html last;
+    }
+
+    location ^~ /alb/assets/ {
+        alias /opt/yeds/www/alb/assets/;
+    }
+
+    location /alb/ {
+        alias /opt/yeds/www/alb/;
+        try_files $uri $uri/ @alb_spa;
+    }
+
+    location @alb_spa {
+        rewrite ^ /index.html last;
+    }
+
+    location = /alb {
+        return 301 /alb/;
+    }
+
+    location /alb-api/ {
+        rewrite ^/alb-api/?(.*)$ /api/alb/$1 break;
+        proxy_pass http://127.0.0.1:8095;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /api/config/ {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization $http_authorization;
+    }
+
+    location /api/runtime/ {
+        proxy_pass http://127.0.0.1:8082;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization $http_authorization;
+    }
+
+    location /api/iam/ {
+        proxy_pass http://127.0.0.1:8091;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization $http_authorization;
+    }
+
+    location = / {
+        return 302 /bids/;
+    }
+
+    location / {
+        return 404;
+    }
+}

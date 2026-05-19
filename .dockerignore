@@ -1,4 +1,5 @@
-# 缩小 mysql 等 build context（compose 根目录为仓库根时）
+# 缩小 build context（compose / Render 单容器构建，上下文为仓库根）
+# Render 全栈镜像：deploy/render/Dockerfile
 **/node_modules/
 **/target/
 **/.git/

@@ -59,6 +59,7 @@ docker compose -f docker-compose.yml -f docker-compose.macos.yml up -d
 | [env/构建环境-本机开发模式.md](env/构建环境-本机开发模式.md) | 中间件 Docker + 本机业务 |
 | [env/构建环境-全栈Docker模式.md](env/构建环境-全栈Docker模式.md) | 全栈容器联调 |
 | [docs/ALB路由与部署指南.md](docs/ALB路由与部署指南.md) | 边缘路由与文根 |
+| [docs/deploy-render.md](docs/deploy-render.md) | Render 云部署（Blueprint） |
 | [.cursor/rules/yeds-docker-compose.mdc](.cursor/rules/yeds-docker-compose.mdc) | Agent Docker 约定 |
 
 ## 组件目录
